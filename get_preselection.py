@@ -3,14 +3,14 @@ import pandas as pd
 import argparse
 # from mytypes import Filename
 from typing import Tuple
-Filename = str
-
+from mytypes import Filename, Mask
 
 def process_parser() -> Tuple[Filename, Filename, bool]:
     parser = argparse.ArgumentParser(description='pythonscript to calculate and save preselection mask')
     parser.add_argument('datafile', help='file to be read')
     parser.add_argument('outfile', help='save preselection as file')
-    parser.add_argument('--barrel_only', action='store_true', help='only read photons in the barrel -> smaller array')
+    parser.add_argument('--barrel_only', action='store_true', help='only read photons in the barrel '
+                                                                    '(makes the array smaller instead of adding as mask on top')
     args = parser.parse_args()
     datafile: Filename = args.datafile
     outfile: Filename = args.outfile
@@ -51,9 +51,9 @@ def get_preselection(df):
     total_mask = pt & eta & shower_shape & one_of
     return total_mask
 
-def total_preselecction(df):
+def get_total_preselection(df) -> Mask:
     """adds eveto to preselection and filters NaNs in rho"""
-    return get_preselection(df) & df.eveto & np.isnan(df.rho)
+    return get_preselection(df) & df['eveto'] & (~np.isnan(df['rho']))
 
 
 if __name__ == "__main__":
@@ -61,9 +61,9 @@ if __name__ == "__main__":
 
 
     df = pd.read_pickle(filename)
-    preselection = get_preselection(df) * df.eveto
+    preselection = get_total_preselection(df) * df['eveto']
     if barrel_only:
-        preselection = preselection[df.detID]
+        preselection = preselection[df['detID']]
 
 
     np.save(outfile, preselection)
