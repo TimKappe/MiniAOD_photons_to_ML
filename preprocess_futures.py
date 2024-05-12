@@ -1,20 +1,18 @@
 import ROOT
 from DataFormats.FWLite import Handle, Events
 
+import os
 import numpy as np
 import pandas as pd
 import argparse
 
+from get_preselection import get_total_preselection
+
 from typing import List, Tuple, Optional, Union
 from numpy.typing import NDArray
 from typing import TypeVar
-# from mytypes import Filename, Mask, Particle
-import os
+from mytypes import Filename, Mask, Particle
 
-Filename = str
-Mask = NDArray[np.bool_]
-
-Particle = TypeVar('Particle')
 
 ROOT.gROOT.SetBatch(True)
 # load FWLite C++ libraries
@@ -230,6 +228,10 @@ def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray
             photonAttributes["rho"] = rhoHandle.product()[0]
             photonAttributes["seed_ieta"] = seed_id.ieta()
             photonAttributes["seed_iphi"] = seed_id.iphi()
+            
+            if not get_total_preselection(photonAttributes):
+                continue
+
             df_list += [photonAttributes]  # list of dicts with the values of the respective photon
 
             # rechits
