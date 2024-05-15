@@ -57,7 +57,7 @@ base_vit = base + Parameters(
     use_reduce_lr=False,
     use_checkpointing=False,
     earlystopping=dict(
-        monitor='val_loss', min_delta=0, patience=190, mode='auto', verbose=2, restore_best_weights=True),
+        monitor='val_loss', min_delta=0, patience=100, mode='auto', verbose=2, restore_best_weights=True),
     reduce_lr=dict(
         monitor='val_loss', factor=0.9, patience=20, verbose=2),
     checkpointing=dict(monitor='val_accuracy', save_best_only=True),  # checkpointfile is defined in script
@@ -130,8 +130,18 @@ patchsize['modelname'] = 'vit_patch2'
 patchsize['patch_size'] = 2
 patchsize.save()
 
+
+new = Parameters(load='models/vit_base.json')
+new['modelname'] = 'vit_32'
+new['dataframefile'] = '/net/scratch_cms3a/kappe/output07May2024/data_high_pre.pkl',
+new['rechitfile']='/net/scratch_cms3a/kappe/output07May2024/data_high_pre.npy',
+new['weightfile']='data/weights_barrel_real.npy',
+new['input_shape']=[32, 32, 3],
+new['image_size']=32,
+new.save()
+
 # base = Parameters(
-#     ## data and modelnames
+#     ## data and modelnamesimage_size
 #     modeldir='models/',
 #     modelname='vit',
 #     ModelName='ViT',
