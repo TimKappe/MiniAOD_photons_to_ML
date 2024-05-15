@@ -31,6 +31,13 @@ class RechitHandler:
 
         self.num_photons = self.idx_photon[-1] + 1
         self.num_batches = self.num_photons//batch_size
+        print(self.idx_photon[-1])
+        print(len(self.idx_photon))
+        print(self.batch_size)
+        print(self.idx_photon[-1]/self.batch_size)
+        print()
+        print(self.num_photons)
+        print(self.num_batches)
         self.slices = self.get_slices()
 
         # TODO shuffle data
@@ -40,7 +47,21 @@ class RechitHandler:
     
     def get_slices(self):
         photon_idxs = np.unique(self.idx_photon, return_index=True)[1]
+        idx_values = np.unique(self.idx_photon, return_index=True)[0]
+        print('------')
+        print(idx_values)
+        print(len(idx_values))
+        print(idx_values[-1])
+        print(max(idx_values))
+        print('==================')
+        for idx in np.arange(self.num_photons):
+            if idx not in idx_values:
+                print(idx)
+        print('==================')
+        # print([i for i in idx_values if i not in np.arange(self.idx_photon)])
+        # print(idx_values==np.arange(self.idx_photon[-1]))
         # photon_idxs index of first appearance of each number in idxs_photons
+        print('-----')
         print(len(photon_idxs))
         print((self.num_batches-1)*self.batch_size)
         print((self.num_batches)*self.batch_size)
@@ -87,8 +108,9 @@ class RechitHandler:
 
     #         start_photon = end_photon
     #         yield batch
-
-Handler = RechitHandler('data/test.npz', batch_size=5, image_size=11)
+small_file = '/home/home1/institut_3a/kappe/work/data/test_rechit_format/together.npz'
+large_file = 'data/test.npz'
+Handler = RechitHandler(small_file, batch_size=5, image_size=11)
 generator = Handler.batch_generator
 for batch in generator():
     print(batch)
