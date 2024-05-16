@@ -1,2 +1,1 @@
-/home/home1/institut_3a/kappe/work/models/vit_patch2.json
-/home/home1/institut_3a/kappe/work/models/vit_32.json
+/home/home1/institut_3a/kappe/work/models/vit_patch1.json

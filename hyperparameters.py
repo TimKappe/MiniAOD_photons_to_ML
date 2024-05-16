@@ -121,23 +121,18 @@ test.save()
 
 
 patchsize = Parameters(load='models/vit_base.json')
-patchsize['modelname'] = 'vit_patch3'
-patchsize['patch_size'] = 3
-patchsize.save()
-
-patchsize = Parameters(load='models/vit_base.json')
-patchsize['modelname'] = 'vit_patch2'
-patchsize['patch_size'] = 2
+patchsize['modelname'] = 'vit_patch1'
+patchsize['patch_size'] = 1
 patchsize.save()
 
 
 new = Parameters(load='models/vit_base.json')
 new['modelname'] = 'vit_32'
-new['dataframefile'] = '/net/scratch_cms3a/kappe/output07May2024/data_high_pre.pkl',
-new['rechitfile']='/net/scratch_cms3a/kappe/output07May2024/data_high_pre.npy',
-new['weightfile']='data/weights_barrel_real.npy',
-new['input_shape']=[32, 32, 3],
-new['image_size']=32,
+new['dataframefile'] = '/net/scratch_cms3a/kappe/output07May2024/data_high_pre.pkl'
+new['rechitfile']='/net/scratch_cms3a/kappe/output07May2024/rechits_high_pre.npy'
+new['weightfile']='data/weights_barrel_real.npy'
+new['input_shape']=[32, 32, 3]
+new['image_size']=32
 new.save()
 
 # base = Parameters(
