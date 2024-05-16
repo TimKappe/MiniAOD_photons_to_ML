@@ -14,6 +14,8 @@ def process_args() -> Tuple[Filename, Filename]:
     args = parser.parse_args()
     file_: Filename = args.file
     outname_: Filename = args.outname
+    if outname_[-4:] != '.npz':
+        raise ValueError('"outname" needs to be a .npz-file')
     return file_, outname_
 
 file, outname = process_args()
