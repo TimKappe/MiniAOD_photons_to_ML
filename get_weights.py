@@ -24,20 +24,15 @@ def plot_2dhist(hist):
 
 
 def process_args() -> pd.DataFrame:
+    # TODO remove datafile default and add outname
     parser = argparse.ArgumentParser(description='get weights and save them')
-    parser.add_argument('--datafile', default='data/new_data_pre.pkl', help='data to be used')
-    parser.add_argument('--preselectionfile', help='apply preselection from given file')
+    parser.add_argument('--datafile', default='data/data_11x11.pkl', help='data to be used')
     args = parser.parse_args()
 
     datafile_: Filename = args.datafile
-    preselectionfile: Optional[Filename] = args.preselectionfile
 
     df_ = pd.read_pickle(datafile_)
-    preselection: Mask = np.ones(len(df_))
-    if preselectionfile is not None:
-        preselection = np.load(preselectionfile)
-
-    return df_[preselection]
+    return df_
 
 ############################################################
 df = process_args()
