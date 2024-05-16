@@ -1,19 +1,7 @@
 import numpy as np
 
 from typing import Generator, Tuple
-from mytypes import Filename, NDArray, Mask
-
-# rechits = np.load('data/new_rechits_pre_barrel.npy')
-
-# indices = np.nonzero(rechits)
-# values = rechits[indices]
-
-# np.savez('data/test.npz', values=values, idx1=indices[0], idx2=indices[1], idx3=indices[2])
-# print('saved_together')
-
-# data = np.load('data/together.npz')  # this is a dict with 4 arrays
-# values, indices = data['values'], tuple(data.values())[1:]
-# # values_re, nonzero_re = data['values'], data
+from mytypes import Filename, NDArray
 
 
 class RechitHandler:
@@ -26,18 +14,11 @@ class RechitHandler:
         sparse_rechits = np.load(file)  # this is a dict with 4 entries
         self.values = sparse_rechits['values']
         self.idx_photon, self.idx_row, self.idx_col = tuple(sparse_rechits.values())[1:]
-        # idx0 indexes which photon the pixel belongs to
-        # idx1 and 2 are the idxs of the nonzero pixel in the image
+        # idx_photon indexes which photon the pixel belongs to
+        # idx_row and idx_col are the idxs of the pixel in the image
 
         self.num_photons = self.idx_photon[-1] + 1
-        self.num_batches = self.num_photons//batch_size
-        print(self.idx_photon[-1])
-        print(len(self.idx_photon))
-        print(self.batch_size)
-        print(self.idx_photon[-1]/self.batch_size)
-        print()
-        print(self.num_photons)
-        print(self.num_batches)
+        self.num_batches = self.num_photons//batch_size + 1
         self.slices = self.get_slices()
 
         # TODO shuffle data
@@ -45,28 +26,11 @@ class RechitHandler:
     def shuffle_data(self):
         pass
     
-    def get_slices(self):
+    def get_slices(self):  
         photon_idxs = np.unique(self.idx_photon, return_index=True)[1]
-        idx_values = np.unique(self.idx_photon, return_index=True)[0]
-        print('------')
-        print(idx_values)
-        print(len(idx_values))
-        print(idx_values[-1])
-        print(max(idx_values))
-        print('==================')
-        for idx in np.arange(self.num_photons):
-            if idx not in idx_values:
-                print(idx)
-        print('==================')
-        # print([i for i in idx_values if i not in np.arange(self.idx_photon)])
-        # print(idx_values==np.arange(self.idx_photon[-1]))
-        # photon_idxs index of first appearance of each number in idxs_photons
-        print('-----')
-        print(len(photon_idxs))
-        print((self.num_batches-1)*self.batch_size)
-        print((self.num_batches)*self.batch_size)
+        # photon_idxs are the indices of the first appearance of each number in idxs_photons
         slices = [slice(photon_idxs[i*self.batch_size], photon_idxs[(i+1)*self.batch_size]) for i in range(self.num_batches-1)]
-        slices += [slice(slices[-1].stop, len(self.idx_photon))]  # last smaller batch
+        slices += [slice(slices[-1].stop, len(self.idx_photon))]  # last batch is smaller if shape does not match by chance
         return slices
 
 
@@ -76,46 +40,26 @@ class RechitHandler:
         return dense
 
     def batch_generator(self) -> Generator[NDArray, None, None]:
-        for i in range(self.num_batches):
-            this_slice = self.slices[i]
+        for i, this_slice in enumerate(self.slices):
             values = self.values[this_slice]
             shifted_photon_index = self.idx_photon[this_slice] - i*self.batch_size # make sure the first index of the first array is always 0
-            print(this_slice)
-            print(this_slice.stop - this_slice.start)
-            print(shifted_photon_index[-1])
-            print(i)
-            print(self.num_batches)
-
             indices = (shifted_photon_index, self.idx_row[this_slice], self.idx_col[this_slice])
             yield self.sparse_to_dense(values, indices)
 
 
-    # def old_batch_generator(self, batch_size) -> Generator[NDArray, None, None]:
-    #     batch_shape = (batch_size, self.image_size, self.image_size)
-
-    #     num_photons = self.idx0[-1] + 2  # +2 because both range and my slicing is exclusive and I need to reach the last values as well
-    #     start_photon = 0
-    #     for end_photon in range(batch_size, num_photons, batch_size):  # end_photon starts at batchsize, because start_photon starts at 0
-    #         # print('\n\ncurrent end photon:', end_photon)
-    #         this_batch: Mask = (start_photon <= self.idx0) & (self.idx0 < end_photon)
-    #         print(end_photon)
-    #         photon_idx_in_batch = self.idx0[this_batch] - start_photon
-    #         image_idxs_in_batch = (self.idx1[this_batch], self.idx2[this_batch])
-    #         batch_values = self.values[this_batch]
-    #         batch_idxs = (photon_idx_in_batch, *image_idxs_in_batch)
-            
-    #         batch = self.sparse_to_dense(batch_values, batch_idxs, batch_shape)
-
-    #         start_photon = end_photon
-    #         yield batch
-small_file = '/home/home1/institut_3a/kappe/work/data/test_rechit_format/together.npz'
-large_file = 'data/test.npz'
-Handler = RechitHandler(small_file, batch_size=5, image_size=11)
+from time import time
+small_file = '/home/home1/institut_3a/kappe/work/data/test_rechit_format/original_sparse.npz'
+large_file = 'data/rechits_11x11_sparse.npz'
+# Handler = RechitHandler(small_file, batch_size=4096, image_size=32)
+Handler = RechitHandler(large_file, batch_size=4096, image_size=11)
 generator = Handler.batch_generator
+print('starting batch iteration')
+start = time()
 for batch in generator():
-    print(batch)
-
-
+    # print(batch)
+    pass
+end = time()
+print('time', end-start)
 
 
 
