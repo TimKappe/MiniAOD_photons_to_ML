@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 # from tensorflow import keras
 # import tensorflow as tf
+import keras
 import argparse
 import sklearn.metrics as skm
 
@@ -114,8 +115,8 @@ def plot_roc_ratio(axis: plt.Axes, predictions_base: NDArray, predictions_compar
     axis.set_xlabel('True positives rate')
     axis.set_ylabel('Background rejection ratio')
     axis.set_xlim(threshold, 1.)
-    ylim = max(np.abs(1-np.array(axis.get_ylim())))
-    axis.set_ylim(1-ylim, 1+ylim)
+    # ylim = max(np.abs(1-np.array(axis.get_ylim())))
+    # axis.set_ylim(1-ylim, 1+ylim)
 
     axis.grid(True)
     axis.legend(loc='upper left')
