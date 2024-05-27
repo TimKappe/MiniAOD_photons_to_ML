@@ -4,10 +4,12 @@ from keras.utils import Sequence
 from typing import Generator, Tuple
 from mytypes import Filename, NDArray
 
+from mynetworks import resize_images
+
 class RechitHandler(Sequence):
     def __init__(self, file: Filename, other_inputs: NDArray, labels: NDArray, weights: NDArray, 
                  batch_size: int, image_size: int, which_set: str = 'train') -> None:
-        """set needs to be "train", "val" or "test""""
+        """set needs to be 'train', 'val' or 'test'"""
         if which_set=='train': use_data = slice(0, int(0.6*len(labels)))
         elif which_set=='val': use_data = slice(int(0.6*len(labels)), int(0.8*len(labels)))
         elif which_set=='test': use_data = slice(int(0.8*len(labels)), None)
@@ -24,6 +26,7 @@ class RechitHandler(Sequence):
         self.values = sparse_rechits['values'][use_data]
         self.idx_photon, self.idx_row, self.idx_col = tuple(sparse_rechits.values())[1:]
         self.idx_photon = self.idx_photon[use_data]
+        self.idx_photon -= self.idx_photon[0]
         self.idx_row = self.idx_row[use_data]
         self.idx_col = self.idx_col[use_data]
         
@@ -45,9 +48,10 @@ class RechitHandler(Sequence):
         shifted_photon_index = self.idx_photon[this_slice] - index*self.batch_size # make sure the first index of the first array is always 0
         indices = (shifted_photon_index, self.idx_row[this_slice], self.idx_col[this_slice])
         dense_rechits = self.sparse_to_dense(values, indices)
+        dense_rechits = resize_images(dense_rechits)
 
         batch_slice = slice(index * self.batch_size, (index + 1) * self.batch_size)
-        batched_inputs = self.other_inputs[:, batch_slice]
+        batched_inputs = self.other_inputs[batch_slice, :]
         batched_labels = self.labels[batch_slice]
         batched_weigths = self.weights[batch_slice]
         return [dense_rechits, batched_inputs], batched_labels, batched_weigths
@@ -75,27 +79,28 @@ class RechitHandler(Sequence):
     #         indices = (shifted_photon_index, self.idx_row[this_slice], self.idx_col[this_slice])
     #         yield self.sparse_to_dense(values, indices)
 
-import pandas as pd
-from time import time
-small_file = '/home/home1/institut_3a/kappe/work/data/test_rechit_format/original_sparse.npz'
-large_file = 'data/rechits_11x11_sparse.npz'
-# Handler = RechitHandler(small_file, batch_size=4096, image_size=32)
-df = pd.read_pickle('data/data_11x11.pkl')
-labels = df['real'].to_numpy(dtype=int)
-pt = df.pt.to_numpy()
-eta = df.eta.to_numpy()
-other = np.column_stack([pt, eta])
-weights = np.load('data/weights_real.npy')
+if __name__=='__main__':
+    import pandas as pd
+    from time import time
+    small_file = '/home/home1/institut_3a/kappe/work/data/test_rechit_format/original_sparse.npz'
+    large_file = 'data/rechits_11x11_sparse.npz'
+    # Handler = RechitHandler(small_file, batch_size=4096, image_size=32)
+    df = pd.read_pickle('data/data_11x11.pkl')
+    labels = df['real'].to_numpy(dtype=int)
+    pt = df.pt.to_numpy()
+    eta = df.eta.to_numpy()
+    other = np.column_stack([pt, eta])
+    weights = np.load('data/weights_real.npy')
 
-Handler = RechitHandler(large_file, other, labels, weights, batch_size=4096, image_size=11)
-generator = Handler
-print('starting batch iteration')
-start = time()
-for batch in generator:
-    print(batch)
-    # pass
-end = time()
-print('time', end-start)
+    Handler = RechitHandler(large_file, other, labels, weights, batch_size=4096, image_size=11)
+    generator = Handler
+    print('starting batch iteration')
+    start = time()
+    for batch in generator:
+        print(batch)
+        # pass
+    end = time()
+    print('time', end-start)
 
 
 

@@ -50,6 +50,7 @@ print(params)
 
 ### load and prepare the data
 df: pd.DataFrame = pd.read_pickle(params['dataframefile'])
+y_train, y_test = split_data(params, df.real.to_numpy(dtype=int))
 other_inputs = [df[key].to_numpy() for key in params['other_inputs']]
 pt = df.pt.to_numpy()
 eta = df.eta.to_numpy()
@@ -60,13 +61,8 @@ hcalIso = df.hcalIso.to_numpy()
 converted = df.converted.to_numpy(dtype=int)
 convertedOneLeg = df.convertedOneLeg.to_numpy(dtype=int)
 
-
 weights = weights_from_params(params, selection=None)
 weights_test = weights_from_params(params, test_set=True, selection=None)
-(x_train, y_train), (x_test, y_test) = data_from_params(params, selection=None)
-x_train = resize_images(x_train)
-x_test = resize_images(x_test)
-
 
 needs_scaling = [np.log(pt), eta, rho, HoE, trackIso, hcalIso]
 # rescale other input variables
@@ -96,12 +92,6 @@ TestHandler = RechitHandler(rechitfile, other_test_inputs, y_test, weights_test,
 
 
 ########################################################################
-
-# TODO make plot of rescaled pt eta
-
-# Plot patches of one image
-image: NDArray = x_train[np.random.choice(range(x_train.shape[0]))]
-plot_patches(image, params['image_size'], params['patch_size'], "image.png")
 
 ########################################################################
 ### Callbacks
@@ -137,7 +127,7 @@ model.summary()
 history = model.fit(TrainHandler, 
                     validation_data=ValHandler,
                     callbacks=callbacks,
-                    epochs=params['epochs'],
+                    epochs=params['fit_params']['epochs'],
                     verbose=2
                     )
 
