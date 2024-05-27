@@ -27,6 +27,8 @@ from mytypes import Filename, Mask
 from mytypes import Callback, Layer
 print('typing imports done')
 
+from rechit_handler import RechitHandler
+
 
 # shorthands
 models = keras.models
@@ -40,6 +42,11 @@ print(paramfile)
 params = Parameters(load=paramfile)
 print('Parameters:')
 print(params)
+
+# TODO add Handler
+# TODO validation needs to be separate
+
+# TODO add shuffling to Handler when adding datasets together
 
 ### load and prepare the data
 df: pd.DataFrame = pd.read_pickle(params['dataframefile'])
@@ -71,6 +78,24 @@ other_train_inputs = scaled_inputs_train + [converted_train, convertedOneLeg_tra
 other_test_inputs = scaled_inputs_test + [converted_test, convertedOneLeg_test]
 other_train_inputs = np.column_stack(other_train_inputs)
 other_test_inputs = np.column_stack(other_test_inputs)
+
+########################################################################
+rechitfile: Filename = params['rechitfile']
+try:
+    params['batch_size'] = params['fit_params']['batch_size']
+except:
+    ReferenceError
+rechitfile = 'data/rechits_11x11_sparse.npz'  # TODO remove line
+TrainHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights, 
+                             params['batch_size'], params['image_size'], which_set='train')
+ValHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights, 
+                           params['batch_size'], params['image_size'], which_set='val')
+TestHandler = RechitHandler(rechitfile, other_test_inputs, y_test, weights_test, 
+                           params['batch_size'], params['image_size'], which_set='test')
+
+
+
+########################################################################
 
 # TODO make plot of rescaled pt eta
 
@@ -109,10 +134,11 @@ model.compile(optimizer=optimizer,
 model.summary()
 
 # todo make fit_params a dict in Parameters
-history = model.fit([x_train, other_train_inputs], y_train,
-                    sample_weight=weights,
+history = model.fit(TrainHandler, 
+                    validation_data=ValHandler,
                     callbacks=callbacks,
-                    **params['fit_params']
+                    epochs=params['epochs'],
+                    verbose=2
                     )
 
 ### save model and history
@@ -126,7 +152,7 @@ print('history saved as', historyfile)
 
 
 ##################################################################
-test_loss, test_acc = model.evaluate([x_test, other_test_inputs],  y_test, sample_weight=weights_test, verbose=params['fit_params']['verbose'])
+test_loss, test_acc = model.evaluate(TestHandler, verbose=params['fit_params']['verbose'])
 print('test_accuracy =', test_acc)
 
 ### plot training curves
@@ -135,7 +161,15 @@ plot_training(history.history, test_acc, savename=figname)  # info printed insid
 
 ##############################################################################
 ### calculate output
-y_pred: NDArray = model.predict([x_test, other_test_inputs], verbose=params['fit_params']['verbose']).flatten()  # output is shape (..., 1)
+def sparse_to_dense(values: NDArray, indices: Tuple[NDArray, NDArray, NDArray]) -> NDArray:
+    dense = np.zeros((int(0.2*len(df)), params['image_size'], params['image_size']), dtype=np.float32)
+    dense[indices] = values
+    return dense
+
+x_test_dense = sparse_to_dense(TestHandler.values, 
+                              (TestHandler.idx_photon, TestHandler.idx_row,TestHandler.idx_col))
+
+y_pred: NDArray = model.predict([x_test_dense, other_test_inputs], verbose=params['fit_params']['verbose']).flatten()  # output is shape (..., 1)
 savename: Filename = params['modeldir'] + params['modelname'] + '_pred.npy'
 np.save(savename, y_pred)
 print(f'INFO: prediction saves as {savename}')

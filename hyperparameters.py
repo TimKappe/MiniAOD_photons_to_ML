@@ -30,7 +30,10 @@ base = Parameters(
     fit_params=dict(
         validation_split=0.25, epochs=500, batch_size=4096, verbose=2),  # val_split0.25 means split of 60/20/20,
                                                                          # need to account for testsplit first
+    validation_split=0.25, 
     learning_rate=1e-3,
+    epochs=500
+    batch_size=4096
     output_binwidth=0.05,
 )
 
@@ -109,9 +112,9 @@ base_cnn.save('models/cnn_base.json')
 
 test = Parameters(load='models/vit_base.json')
 test['modelname'] = 'vit_test'
-test['dataframefile'] = 'data/test.pkl', #TODO find out why the fuck this gets interpreted as a list ni the json file
-test['rechitfile'] = 'data/test.npy',
-test['weightfile'] = 'data/test_weights.npy',
+test['dataframefile'] = 'data/test.pkl' 
+test['rechitfile'] = 'data/test.npy'
+test['weightfile'] = 'data/test_weights.npy'
 test['test_split'] = 0.9
 test['fit_params']['epochs'] = 1
 test['mlp_head_units'] = [1]
@@ -123,6 +126,9 @@ test.save()
 patchsize = Parameters(load='models/vit_base.json')
 patchsize['modelname'] = 'vit_patch1'
 patchsize['patch_size'] = 1
+patchsize['dataframefile'] = 'data/data_11x11.pkl'
+patchsize['rechitfile'] = 'data/rechits_11x11.npy'
+patchsize['weightfile'] = 'data/weights_real.npy'
 patchsize.save()
 
 
@@ -134,6 +140,9 @@ new['weightfile']='data/weights_barrel_real.npy'
 new['input_shape']=[32, 32, 3]
 new['image_size']=32
 new.save()
+
+
+
 
 # base = Parameters(
 #     ## data and modelnamesimage_size
