@@ -32,8 +32,8 @@ base = Parameters(
                                                                          # need to account for testsplit first
     validation_split=0.25, 
     learning_rate=1e-3,
-    epochs=500
-    batch_size=4096
+    epochs=500,
+    batch_size=4096,
     output_binwidth=0.05,
 )
 
@@ -110,37 +110,36 @@ base_vit.save('models/vit_base.json')
 base_cnn.save('models/cnn_base.json')
 
 
-test = Parameters(load='models/vit_base.json')
-test['modelname'] = 'vit_test'
-test['dataframefile'] = 'data/test.pkl' 
-test['rechitfile'] = 'data/test.npy'
-test['weightfile'] = 'data/test_weights.npy'
-test['test_split'] = 0.9
-test['fit_params']['epochs'] = 1
-test['mlp_head_units'] = [1]
-test['num_heads'] = 1
-test['transformer_layers'] = 1
-test.save()
-
-
 patchsize = Parameters(load='models/vit_base.json')
 patchsize['modelname'] = 'vit_patch1'
 patchsize['patch_size'] = 1
-patchsize['dataframefile'] = 'data/data_11x11.pkl'
-patchsize['rechitfile'] = 'data/rechits_11x11.npy'
+patchsize['dataframefile'] = 'data/data_high.pkl'
+patchsize['rechitfile'] = 'data/rechits_11x11_high.npz'
 patchsize['weightfile'] = 'data/weights_real.npy'
 patchsize.save()
 
 
 new = Parameters(load='models/vit_base.json')
 new['modelname'] = 'vit_32'
-new['dataframefile'] = '/net/scratch_cms3a/kappe/output07May2024/data_high_pre.pkl'
-new['rechitfile']='/net/scratch_cms3a/kappe/output07May2024/rechits_high_pre.npy'
-new['weightfile']='data/weights_barrel_real.npy'
+new['dataframefile'] = 'data/data_high.pkl'
+new['rechitfile']='data/rechits_32x32_high.npz'
+new['weightfile']='data/weights_real.npy'
 new['input_shape']=[32, 32, 3]
 new['image_size']=32
 new.save()
 
+test32 = Parameters(load='models/vit_base.json')
+test32['modelname'] = 'test32'
+test32['dataframefile'] = 'data/data_high.pkl'
+test32['rechitfile']='data/rechits_32x32_high.npz'
+test32['weightfile']='data/weights_real.npy'
+test32['input_shape']=[32, 32, 3]
+test32['image_size']=32
+test32['batch_size']=50_000
+test32['fit_params']['batch_size']=50_000
+test32['fit_params']['epochs'] = 1
+test32['transformer_layers'] = 1
+test32.save()
 
 
 

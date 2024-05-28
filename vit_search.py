@@ -23,7 +23,7 @@ print('my imports done')
 
 from typing import List, Tuple, Optional, Union
 from numpy.typing import NDArray
-from mytypes import Filename, Mask
+from mytypes import Filename, Mask, Sparse
 from mytypes import Callback, Layer
 print('typing imports done')
 
@@ -81,7 +81,6 @@ try:
     params['batch_size'] = params['fit_params']['batch_size']
 except:
     ReferenceError
-rechitfile = 'data/rechits_11x11_sparse.npz'  # TODO remove line
 TrainHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights, 
                              params['batch_size'], params['image_size'], which_set='train')
 ValHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights, 
@@ -124,6 +123,7 @@ model.compile(optimizer=optimizer,
 model.summary()
 
 # todo make fit_params a dict in Parameters
+# history = model.fit(TrainHandler, 
 history = model.fit(TrainHandler, 
                     validation_data=ValHandler,
                     callbacks=callbacks,
@@ -151,15 +151,17 @@ plot_training(history.history, test_acc, savename=figname)  # info printed insid
 
 ##############################################################################
 ### calculate output
-def sparse_to_dense(values: NDArray, indices: Tuple[NDArray, NDArray, NDArray]) -> NDArray:
+# TODO do this properly later
+def sparse_to_dense(sparse: Sparse) -> NDArray:
     dense = np.zeros((int(0.2*len(df)), params['image_size'], params['image_size']), dtype=np.float32)
+    values, indices = sparse[0], sparse[1:]
     dense[indices] = values
     return dense
 
-x_test_dense = sparse_to_dense(TestHandler.values, 
-                              (TestHandler.idx_photon, TestHandler.idx_row,TestHandler.idx_col))
+# x_test_dense = sparse_to_dense(TestHandler.get_sparse_rechits())
 
-y_pred: NDArray = model.predict([x_test_dense, other_test_inputs], verbose=params['fit_params']['verbose']).flatten()  # output is shape (..., 1)
+
+y_pred: NDArray = model.predict(TestHandler, verbose=params['fit_params']['verbose']).flatten()  # output is shape (..., 1)
 savename: Filename = params['modeldir'] + params['modelname'] + '_pred.npy'
 np.save(savename, y_pred)
 print(f'INFO: prediction saves as {savename}')
