@@ -1,9 +1,10 @@
 import numpy as np
 import argparse
 
-from typing import Tuple
-from mytypes import Filename, NDArray
+from myfunctions import dense_to_sparse, save_sparse_rechits
 
+from typing import Tuple
+from mytypes import Filename
 
 def process_args() -> Tuple[Filename, Filename]:
     parser = argparse.ArgumentParser(description='read a dense rechits file and save it in sparse representation',
@@ -21,13 +22,8 @@ def process_args() -> Tuple[Filename, Filename]:
 file, outname = process_args()
 rechits = np.load(file)
 
-nonzero = np.nonzero(rechits)  # tuple of three arrays
-values = rechits[nonzero]
-nonzero = [idx_array.astype(np.int32) for idx_array in nonzero]  # change from int64 to save diskspace
-
-np.savez(outname, values=values, idx1=nonzero[0], idx2 = nonzero[1], idx3=nonzero[2])
-print(f'INFO: file saved as {outname}')
-
+sparse = dense_to_sparse(rechits)
+save_sparse_rechits(outname, sparse)
 
 print('FINISHED')
 
