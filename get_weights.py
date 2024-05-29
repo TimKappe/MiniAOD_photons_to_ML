@@ -23,19 +23,21 @@ def plot_2dhist(hist):
     plt.pcolormesh(*hist.axes.edges.T, hist.view().T, norm=mpl.colors.LogNorm())
 
 
-def process_args() -> pd.DataFrame:
+def process_args() -> Tuple[pd.DataFrame, Filename]:
     # TODO remove datafile default and add outname
     parser = argparse.ArgumentParser(description='get weights and save them')
-    parser.add_argument('--datafile', default='data/data_11x11.pkl', help='data to be used')
+    parser.add_argument('datafile', help='data to be used')
+    parser.add_argument('outname', help='data to be used')
     args = parser.parse_args()
 
     datafile_: Filename = args.datafile
 
     df_ = pd.read_pickle(datafile_)
-    return df_
+    outname_ = args.outname
+    return df_, outname_
 
 ############################################################
-df = process_args()
+df, outname = process_args()
 
 real = df.real
 fake = ~real
@@ -154,10 +156,10 @@ weights_fake[pt > 250] = 0.
 weights_real[pt > 250] = 0.
 
 # TODO add to process args
-fake_file = 'data/weights_fake.npy'
-real_file = 'data/weights_real.npy'
-np.save(fake_file, weights_fake)
-print(f'INFO: fake weights saved as {fake_file}')
+# fake_file = 'data/weights_fake.npy'
+real_file = outname  # 'data/weights_real.npy'
+# np.save(fake_file, weights_fake)
+# print(f'INFO: fake weights saved as {fake_file}')
 np.save(real_file, weights_real)
 print(f'INFO: real weights saved as {real_file}')
 
