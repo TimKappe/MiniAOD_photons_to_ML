@@ -10,7 +10,7 @@ error = errs/vit32_$(jobnumber)
 
 
 #request_cpus = 1
-request_memory = 150000
+request_memory = 100000
 
 request_GPUs = 1
 

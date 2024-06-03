@@ -23,9 +23,11 @@ print('my imports done')
 
 from typing import List, Tuple, Optional, Union
 from numpy.typing import NDArray
-from mytypes import Filename, Mask
+from mytypes import Filename, Mask, Sparse
 from mytypes import Callback, Layer
 print('typing imports done')
+
+from rechit_handler import RechitHandler
 
 
 # shorthands
@@ -41,8 +43,14 @@ params = Parameters(load=paramfile)
 print('Parameters:')
 print(params)
 
+# TODO add Handler
+# TODO validation needs to be separate
+
+# TODO add shuffling to Handler when adding datasets together
+
 ### load and prepare the data
 df: pd.DataFrame = pd.read_pickle(params['dataframefile'])
+y_train, y_test = split_data(params, df.real.to_numpy(dtype=int))
 other_inputs = [df[key].to_numpy() for key in params['other_inputs']]
 pt = df.pt.to_numpy()
 eta = df.eta.to_numpy()
@@ -53,13 +61,8 @@ hcalIso = df.hcalIso.to_numpy()
 converted = df.converted.to_numpy(dtype=int)
 convertedOneLeg = df.convertedOneLeg.to_numpy(dtype=int)
 
-
 weights = weights_from_params(params, selection=None)
 weights_test = weights_from_params(params, test_set=True, selection=None)
-(x_train, y_train), (x_test, y_test) = data_from_params(params, selection=None)
-x_train = resize_images(x_train)
-x_test = resize_images(x_test)
-
 
 needs_scaling = [np.log(pt), eta, rho, HoE, trackIso, hcalIso]
 # rescale other input variables
@@ -72,11 +75,22 @@ other_test_inputs = scaled_inputs_test + [converted_test, convertedOneLeg_test]
 other_train_inputs = np.column_stack(other_train_inputs)
 other_test_inputs = np.column_stack(other_test_inputs)
 
-# TODO make plot of rescaled pt eta
+########################################################################
+rechitfile: Filename = params['rechitfile']
+try:
+    params['batch_size'] = params['fit_params']['batch_size']
+except:
+    ReferenceError
+TrainHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights, 
+                             params['batch_size'], params['image_size'], which_set='train')
+ValHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights, 
+                           params['batch_size'], params['image_size'], which_set='val')
+TestHandler = RechitHandler(rechitfile, other_test_inputs, y_test, weights_test, 
+                           params['batch_size'], params['image_size'], which_set='test')
 
-# Plot patches of one image
-image: NDArray = x_train[np.random.choice(range(x_train.shape[0]))]
-plot_patches(image, params['image_size'], params['patch_size'], "image.png")
+
+
+########################################################################
 
 ########################################################################
 ### Callbacks
@@ -109,10 +123,12 @@ model.compile(optimizer=optimizer,
 model.summary()
 
 # todo make fit_params a dict in Parameters
-history = model.fit([x_train, other_train_inputs], y_train,
-                    sample_weight=weights,
+# history = model.fit(TrainHandler, 
+history = model.fit(TrainHandler, 
+                    validation_data=ValHandler,
                     callbacks=callbacks,
-                    **params['fit_params']
+                    epochs=params['fit_params']['epochs'],
+                    verbose=2
                     )
 
 ### save model and history
@@ -126,7 +142,7 @@ print('history saved as', historyfile)
 
 
 ##################################################################
-test_loss, test_acc = model.evaluate([x_test, other_test_inputs],  y_test, sample_weight=weights_test, verbose=params['fit_params']['verbose'])
+test_loss, test_acc = model.evaluate(TestHandler, verbose=params['fit_params']['verbose'])
 print('test_accuracy =', test_acc)
 
 ### plot training curves
@@ -135,7 +151,17 @@ plot_training(history.history, test_acc, savename=figname)  # info printed insid
 
 ##############################################################################
 ### calculate output
-y_pred: NDArray = model.predict([x_test, other_test_inputs], verbose=params['fit_params']['verbose']).flatten()  # output is shape (..., 1)
+# TODO do this properly later
+def sparse_to_dense(sparse: Sparse) -> NDArray:
+    dense = np.zeros((int(0.2*len(df)), params['image_size'], params['image_size']), dtype=np.float32)
+    values, indices = sparse[0], sparse[1:]
+    dense[indices] = values
+    return dense
+
+# x_test_dense = sparse_to_dense(TestHandler.get_sparse_rechits())
+
+
+y_pred: NDArray = model.predict(TestHandler, verbose=params['fit_params']['verbose']).flatten()  # output is shape (..., 1)
 savename: Filename = params['modeldir'] + params['modelname'] + '_pred.npy'
 np.save(savename, y_pred)
 print(f'INFO: prediction saves as {savename}')

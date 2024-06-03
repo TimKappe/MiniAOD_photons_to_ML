@@ -23,14 +23,17 @@ base = Parameters(
     barrel_only=True,
     test_split=0.2,
     use_log=True,
-    input_shape=[11, 11, 3],
-    image_size=11,
+    input_shape=[32, 32, 3],
+    image_size=32,
 
     ## for fitting
     fit_params=dict(
         validation_split=0.25, epochs=500, batch_size=4096, verbose=2),  # val_split0.25 means split of 60/20/20,
                                                                          # need to account for testsplit first
+    validation_split=0.25, 
     learning_rate=1e-3,
+    epochs=500,
+    batch_size=4096,
     output_binwidth=0.05,
 )
 
@@ -96,7 +99,7 @@ base_cnn = base + Parameters(
     use_reduce_lr=False,
     use_checkpointing=False,
     earlystopping=dict(
-        monitor='val_loss', min_delta=0, patience=100, mode='auto', verbose=2, restore_best_weights=True),
+        monitor='val_loss', min_delta=0, patience=30, mode='auto', verbose=2, restore_best_weights=True),
     reduce_lr=dict(
         monitor='val_loss', factor=0.9, patience=25, verbose=2),
     checkpointing=dict(monitor='val_accuracy', save_best_only=True),  # checkpointfile is defined in script
@@ -107,33 +110,65 @@ base_vit.save('models/vit_base.json')
 base_cnn.save('models/cnn_base.json')
 
 
-test = Parameters(load='models/vit_base.json')
-test['modelname'] = 'vit_test'
-test['dataframefile'] = 'data/test.pkl', #TODO find out why the fuck this gets interpreted as a list ni the json file
-test['rechitfile'] = 'data/test.npy',
-test['weightfile'] = 'data/test_weights.npy',
-test['test_split'] = 0.9
-test['fit_params']['epochs'] = 1
-test['mlp_head_units'] = [1]
-test['num_heads'] = 1
-test['transformer_layers'] = 1
-test.save()
-
-
 patchsize = Parameters(load='models/vit_base.json')
 patchsize['modelname'] = 'vit_patch1'
 patchsize['patch_size'] = 1
+patchsize['dataframefile'] = 'data/data_high.pkl'
+patchsize['rechitfile'] = 'data/rechits_11x11_high.npz'
+patchsize['weightfile'] = 'data/weights_real.npy'
 patchsize.save()
 
 
-new = Parameters(load='models/vit_base.json')
-new['modelname'] = 'vit_32'
-new['dataframefile'] = '/net/scratch_cms3a/kappe/output07May2024/data_high_pre.pkl'
-new['rechitfile']='/net/scratch_cms3a/kappe/output07May2024/rechits_high_pre.npy'
-new['weightfile']='data/weights_barrel_real.npy'
-new['input_shape']=[32, 32, 3]
-new['image_size']=32
-new.save()
+vit32 = Parameters(load='models/vit_base.json')
+vit32['modelname'] = 'vit32'
+vit32['dataframefile'] = 'data/data_32x32_high.pkl'
+vit32['rechitfile']='data/rechits_32x32_high.npz'
+vit32['weightfile']='data/weights_32x32_real.npy'
+vit32['input_shape']=[32, 32, 3]
+vit32['image_size']=32
+vit32.save()
+
+for i in range(6):
+    vit32 = Parameters(load='models/vit32.json')
+    vit32['modelname'] = f'vit32_patch{i+1}'
+    vit32['patch_size'] = i+1
+    vit32['earlystopping']['patience'] = (i+1)*10
+    vit32.save()
+
+vit11 = Parameters(load='models/vit_base.json')
+vit11['modelname'] = 'vit_11'
+vit11['dataframefile'] = 'data/data_11x11_high.pkl'
+vit11['rechitfile']='data/rechits_11x11_high.npz'
+vit11['weightfile']='data/weights_11x11_real.npy'
+vit11['input_shape']=[11, 11, 3]
+vit11['image_size']=11
+vit11.save()
+
+
+large_dense = Parameters(load='models/vit_base.json')
+large_dense['modelname'] = 'vit_dense_wide'
+large_dense['dataframefile'] = 'data/data_32x32_high.pkl'
+large_dense['rechitfile']='data/rechits_32x32_high.npz'
+large_dense['weightfile']='data/weights_32x32_real.npy'
+large_dense['mlp_head_units']=[512]
+
+large_dense = Parameters(load='models/vit_base.json')
+large_dense['modelname'] = 'vit_dense_large'
+large_dense['dataframefile'] = 'data/data_32x32_high.pkl'
+large_dense['rechitfile']='data/rechits_32x32_high.npz'
+large_dense['weightfile']='data/weights_32x32_real.npy'
+large_dense['mlp_head_units']=[512, 64, 8]
+
+large_dense = Parameters(load='models/vit_base.json')
+large_dense['modelname'] = 'vit_dense_mid'
+large_dense['dataframefile'] = 'data/data_32x32_high.pkl'
+large_dense['rechitfile']='data/rechits_32x32_high.npz'
+large_dense['weightfile']='data/weights_32x32_real.npy'
+large_dense['mlp_head_units']=[128, 64, 16]
+
+large_dense.save()
+
+
 
 # base = Parameters(
 #     ## data and modelnamesimage_size

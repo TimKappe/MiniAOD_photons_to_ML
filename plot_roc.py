@@ -141,8 +141,7 @@ param_list, figname = process_parser()
 df = pd.read_pickle(param_list[0]['dataframefile'])
 weights: NDArray = weights_from_params(param_list[0], test_set=True)
 
-_, (x_test, y_test) = data_from_params(param_list[0])
-
+y_test = df['real'].to_numpy(dtype=int)[int(0.8*len(df)):]
 
 ### get the model predictions
 y_pred_list = [np.load(param['modeldir'] + param['modelname'] + '_pred.npy') for param in param_list]
