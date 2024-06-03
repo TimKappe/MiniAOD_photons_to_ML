@@ -1,6 +1,7 @@
 import numpy as np
 import pandas as pd
 
+from typing import Union, Tuple
 from numpy.typing import NDArray
 from mytypes import Filename, Sparse
 
@@ -22,7 +23,7 @@ def load_sparse(file: Filename) -> Sparse:
     sparse = (npz['values'], npz['idxs1'], npz['idxs2'], npz['idxs3'])
     return sparse
 
-def sparse_to_dense(sparse: Sparse, shape=None) -> NDArray:
+def sparse_to_dense(sparse: Sparse, shape: Union[Tuple[int, int], Tuple[int, int, int]]=(32, 32)) -> NDArray:
     """shape can be 2d or 3d, 
     if 2d it must be the shape of the images and the number of photons will be inferred"""
     values, indices = sparse[0], sparse[1:]
