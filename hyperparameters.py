@@ -60,7 +60,7 @@ base_vit = base + Parameters(
     use_reduce_lr=False,
     use_checkpointing=False,
     earlystopping=dict(
-        monitor='val_loss', min_delta=0, patience=100, mode='auto', verbose=2, restore_best_weights=True),
+        monitor='val_loss', min_delta=0, patience=30, mode='auto', verbose=2, restore_best_weights=True),
     reduce_lr=dict(
         monitor='val_loss', factor=0.9, patience=20, verbose=2),
     checkpointing=dict(monitor='val_accuracy', save_best_only=True),  # checkpointfile is defined in script
@@ -151,6 +151,7 @@ large_dense['dataframefile'] = 'data/data_32x32_high.pkl'
 large_dense['rechitfile']='data/rechits_32x32_high.npz'
 large_dense['weightfile']='data/weights_32x32_real.npy'
 large_dense['mlp_head_units']=[512]
+large_dense.save()
 
 large_dense = Parameters(load='models/vit_base.json')
 large_dense['modelname'] = 'vit_dense_large'
@@ -158,6 +159,7 @@ large_dense['dataframefile'] = 'data/data_32x32_high.pkl'
 large_dense['rechitfile']='data/rechits_32x32_high.npz'
 large_dense['weightfile']='data/weights_32x32_real.npy'
 large_dense['mlp_head_units']=[512, 64, 8]
+large_dense.save()
 
 large_dense = Parameters(load='models/vit_base.json')
 large_dense['modelname'] = 'vit_dense_mid'
@@ -165,8 +167,9 @@ large_dense['dataframefile'] = 'data/data_32x32_high.pkl'
 large_dense['rechitfile']='data/rechits_32x32_high.npz'
 large_dense['weightfile']='data/weights_32x32_real.npy'
 large_dense['mlp_head_units']=[128, 64, 16]
-
+large_dense['learning_rate']=1e-4
 large_dense.save()
+
 
 
 
