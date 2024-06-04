@@ -41,14 +41,18 @@ pt = df.pt.to_numpy()
 real = df.real
 fake = ~real
 
+idxs = np.arange(len(real))
 random_real = np.random.randint(0, real.sum(), 10)
 random_fake = np.random.randint(0, fake.sum(), 10)
+idxs_real = idxs[real][random_real]
+idxs_fake = idxs[fake][random_fake]
 for i in range(len(random_fake)):
-    idx = random_real[i]
-    print(dense[real[idx]])
-    plot_image(dense[real[idx]], f'real, pt={pt[real[idx]]:.2f}', savename=f'plots/image_real{i+1}.png')
-    idx = random_fake[i]
-    plot_image(dense[fake[idx]], f'fake, pt={pt[fake[idx]]:.2f}', savename=f'plots/image_fake{i+1}.png')
+    print(i+1)
+    idx = idxs_real[i]
+    # print(dense[real[idx]])
+    plot_image(dense[idx], f'real, pt={pt[idx]:.2f}', savename=f'plots/image_real{i+1}.png')
+    idx = idxs_fake[i]
+    plot_image(dense[idx], f'fake, pt={pt[idx]:.2f}', savename=f'plots/image_fake{i+1}.png')
 
 
 plt.show()
