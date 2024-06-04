@@ -1,9 +1,9 @@
 import numpy as np
 import pandas as pd
 
-from typing import Union, Tuple
+from typing import Optional, Union, Tuple
 from numpy.typing import NDArray
-from mytypes import Filename, Sparse
+from mytypes import Filename, Mask, Sparse
 
 # rechit functions
 def dense_to_sparse(dense: NDArray) -> Sparse:
@@ -20,7 +20,7 @@ def save_sparse_rechits(savename: Filename, sparse: Sparse) -> None:
 
 def load_sparse(file: Filename) -> Sparse:
     npz = np.load(file)
-    sparse = (npz['values'], npz['idxs1'], npz['idxs2'], npz['idxs3'])
+    sparse = (npz['values'], npz['idx1'], npz['idx2'], npz['idx3'])
     return sparse
 
 def sparse_to_dense(sparse: Sparse, shape: Union[Tuple[int, int], Tuple[int, int, int]]=(32, 32)) -> NDArray:
