@@ -8,6 +8,7 @@
 *.keras
 
 *params.txt
+hyperparameters.py
 
 test*
 
