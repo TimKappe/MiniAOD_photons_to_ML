@@ -133,27 +133,6 @@ class Patches(layers.Layer):
         config.update({"patch_size": self.patch_size})
         return config
 
-# def plot_patches(image: NDArray, image_size: int, patch_size: int, outfile: Optional[str] = None) -> None:
-#     plt.figure(figsize=(4, 4))
-#     plt.imshow(image.astype("uint8"))
-#     plt.axis("off")
-#     plt.savefig(outfile)
-
-#     patches = Patches(patch_size)(image[tf.newaxis, ...])
-#     print(patches.shape)
-#     print(f"Image size: {image_size} X {image_size}")
-#     print(f"Patch size: {patch_size} X {patch_size}")
-#     print(f"Patches per image: {patches.shape[1]}")
-#     print(f"Elements per patch: {patches.shape[-1]}")
-
-#     n = int(np.sqrt(patches.shape[1]))
-#     plt.figure(figsize=(4, 4))
-#     for i, patch in enumerate(patches[0]):
-#         ax = plt.subplot(n, n, i + 1)
-#         patch_img = tf.reshape(patch, (patch_size, patch_size, 3))
-#         plt.imshow(patch_img.numpy().astype("uint8"))
-#         plt.axis("off")
-#     plt.savefig("patched_" + outfile)
 
 def plot_patches(image: NDArray, image_size: int, patch_size: int, outfile: Optional[str] = None) -> None:
     plt.figure(figsize=(4, 4))
@@ -188,7 +167,9 @@ def plot_patches(image: NDArray, image_size: int, patch_size: int, outfile: Opti
         ax.set_xticklabels([])
         ax.set_yticklabels([])
     plt.tight_layout()
-    plt.savefig(outfile.split('.')[0] + '_patched.png')
+    if outfile is not None:
+        plt.savefig(outfile.split('.')[0] + '_patched.png')
+        print(f'INFO: plot saved as {outfile}')
 
 
 # Define PatchEncoder Layer
@@ -226,10 +207,8 @@ def mlp(x: Layer, hidden_units: List[int], dropout_rate: float) -> Layer:
 
 def resize_images(array: NDArray) -> NDArray:
     shape = array.shape
-    new_shape = (*shape, 3)
-    new = np.ones(new_shape)
-    for last_layer in range(3):
-        new[:, :, :, last_layer] *= array
+    new_shape = (*shape, 1)
+    new = array.reshape(new_shape)
     return new
 
 ###########################################################################

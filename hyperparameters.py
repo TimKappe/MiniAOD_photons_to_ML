@@ -144,6 +144,16 @@ vit11['input_shape']=[11, 11, 3]
 vit11['image_size']=11
 vit11.save()
 
+vit11 = Parameters(load='models/vit_base.json')
+vit11['modelname'] = 'vit_test_patches'
+vit11['dataframefile'] = 'data/data_11x11_high.pkl'
+vit11['rechitfile']='data/rechits_11x11_high.npz'
+vit11['weightfile']='data/weights_11x11_real.npy'
+vit11['input_shape']=[11, 11, 1]
+vit11['image_size']=11
+vit11['fit_params']['epochs']=10
+vit11.save()
+
 
 large_dense = Parameters(load='models/vit_base.json')
 large_dense['modelname'] = 'vit_dense_wide'
