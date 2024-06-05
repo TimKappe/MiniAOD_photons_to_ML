@@ -35,3 +35,25 @@ def sparse_to_dense(sparse: Sparse, shape: Union[Tuple[int, int], Tuple[int, int
     dense[indices] = values
     return dense
 
+
+def create_slice_arr(sparse: Sparse) -> NDArray:
+    idx_photon = sparse[1]
+    idxs_dense, _, counts = np.unique(idx_photon, return_index=True, return_counts=True)  
+    # shape: 8Mio, range: 8Mio and shape 8Mio, range 0-32 with average 25
+    idxs_sparse = np.cumsum(counts)  # shape 8Mio, range(200Mio)
+    
+    slices = np.array([slice(idxs_sparse[i], idxs_sparse[i]) for i in range(len(idxs_sparse))])
+    return slices
+
+def slice_sparse(sparse: Sparse, mask: Mask, slice_array: Optional[NDArray] = None) -> Sparse:
+    if slice_array is None:
+        slice_array = create_slice_arr(sparse)
+    selected_slices = slice_array[mask]
+    sel = np.r_[tuple(selected_slices)]  # this converts the slices in an array of indices, which the slices would access
+    selected: Sparse = tuple(arr[sel] for arr in sparse)
+    return selected
+
+
+
+
+
