@@ -121,6 +121,14 @@ def split_data(parameters: Parameters, data: NDArray) -> Tuple[NDArray, NDArray]
     test = get_test_slice(parameters, data)
     return training, test
 
+def split_multiple(parameters: Parameters, data_list: List[NDArray]) -> Tuple[List[NDArray], List[NDArray]]:
+    training_list, test_list = [], []
+    for data in data_list:
+        training, test = split_data(parameters, data)
+        training_list += [training]
+        test_list += [test]
+    return training_list, test_list
+
 def check_params_work_together(parameter_list: List[Parameters], 
                                 allow: Optional[List[str]] = None,
                                 optional_restrict: Optional[List[str]] = None
