@@ -3,15 +3,14 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from tensorflow import keras
-from sklearn.preprocessing import StandardScaler
 import argparse
 
 print('general imports done')
 import myplotparams
 
 # my functions
-from mynetworks import load_and_prepare_data
-from mynetworks import rescale
+from mynetworks import Patches, PatchEncoder, mlp
+from mynetworks import plot_patches, resize_images
 
 from mymodules import plot_training
 from mymodules import plot_output
@@ -19,69 +18,77 @@ from mymodules import plot_output
 from myparameters import Parameters
 from myparameters import data_from_params, weights_from_params
 from myparameters import build_cnn_from_params
+from myparameters import rescale_multiple, split_data
 print('my imports done')
 
 from typing import List, Tuple, Optional, Union
 from numpy.typing import NDArray
-from mytypes import Filename, Mask
+from mytypes import Filename, Mask, Sparse
 from mytypes import Callback, Layer
 print('typing imports done')
+
+from rechit_handler import RechitHandler
 
 
 # shorthands
 models = keras.models
 layers = keras.layers
 
-##################################################################
-### data loading and preparing
 print('starting proper code:')
 parser = argparse.ArgumentParser(description='train vit with hyperparameters from parameterfile')
 parser.add_argument('parameterfile', help='file to be read')
 paramfile = parser.parse_args().parameterfile
-
 print(paramfile)
 params = Parameters(load=paramfile)
+print('Parameters:')
+print(params)
+
+
+# TODO add shuffling to Handler when adding datasets together
 
 ### load and prepare the data
 df: pd.DataFrame = pd.read_pickle(params['dataframefile'])
+y_train, y_test = split_data(params, df.real.to_numpy(dtype=int))
+other_inputs = [df[key].to_numpy() for key in params['other_inputs']]
+pt = df.pt.to_numpy()
+eta = df.eta.to_numpy()
+rho = df.rho.to_numpy()
+HoE = df.HoE.to_numpy()
+trackIso = df.I_tr.to_numpy()
+hcalIso = df.hcalIso.to_numpy()
+converted = df.converted.to_numpy(dtype=int)
+convertedOneLeg = df.convertedOneLeg.to_numpy(dtype=int)
 
-# use only barrel
-selection: Mask = np.ones(len(df), dtype=bool)
-is_barrel: Mask = df['detID'].to_numpy()
-if params['barrel_only']:
-    selection = is_barrel
+weights = weights_from_params(params, selection=None)
+weights_test = weights_from_params(params, test_set=True, selection=None)
 
-pt = df.pt.to_numpy()[selection]
-eta = df.eta.to_numpy()[selection]
-pileup = df.pileup.to_numpy()[selection]
-
-weights = weights_from_params(params, selection=selection)
-weights_test = weights_from_params(params, test_set=True, selection=selection)
-(x_train, y_train), (x_test, y_test) = data_from_params(params, selection=selection)
-
-
+needs_scaling = [np.log(pt), eta, rho, HoE, trackIso, hcalIso]
 # rescale other input variables
-pt_train, pt_test = rescale(params, pt, weights)
-eta_train, eta_test = rescale(params, eta, weights)
-pileup_train, pileup_test = rescale(params, pileup, weights)
+scaled_inputs_train, scaled_inputs_test = rescale_multiple(params, needs_scaling, weights)
 
-training_inputs = [x_train, pt_train, eta_train, pileup_train]
-test_inputs = [x_test, pt_test, eta_test, pileup_test]
+converted_train, converted_test = split_data(params, converted)
+convertedOneLeg_train, convertedOneLeg_test = split_data(params, convertedOneLeg)
+other_train_inputs = scaled_inputs_train + [converted_train, convertedOneLeg_train]
+other_test_inputs = scaled_inputs_test + [converted_test, convertedOneLeg_test]
+other_train_inputs = np.column_stack(other_train_inputs)
+other_test_inputs = np.column_stack(other_test_inputs)
 
-###########################################################################
-# TODO
-input_shape: Tuple[int, int] = x_train[0].shape
+########################################################################
+rechitfile: Filename = params['rechitfile']
+try:
+    params['batch_size'] = params['fit_params']['batch_size']
+except:
+    ReferenceError
+TrainHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights, 
+                             params['batch_size'], params['image_size'], which_set='train')
+ValHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights, 
+                           params['batch_size'], params['image_size'], which_set='val')
+TestHandler = RechitHandler(rechitfile, other_test_inputs, y_test, weights_test, 
+                           params['batch_size'], params['image_size'], which_set='test')
 
-### Callbacks
-checkpointfile = f'{modeldir}{modelname}_checkpoints.keras'
-earlystopping = keras.callbacks.EarlyStopping(monitor='val_loss', min_delta=0, patience=10, mode='auto', verbose=2, restore_best_weights=True)
-checkpointing = keras.callbacks.ModelCheckpoint(checkpointfile, monitor='val_accuracy', save_best_only=True)
-reduce_lr = keras.callbacks.ReduceLROnPlateau(monitor='val_loss', factor=0.9, patience=4)
 
-# callbacks = [earlystopping, checkpointing, reduce_lr]
-# callbacks = [earlystopping, reduce_lr]
-callbacks = [earlystopping]
 
+########################################################################
 
 ########################################################################
 ### Callbacks
@@ -94,76 +101,77 @@ if params['use_earlystopping']:
 if params['use_reduce_lr']:
     callbacks += [keras.callbacks.ReduceLROnPlateau(**params['reduce_lr'])]
 
-###########################################################################
-### build and train the network
-def build_cnn(image_size: int) -> models.Model:
-    input_layer = layers.Input(shape=(image_size, image_size, 1))
-    x = layers.Conv2D(16, (3, 3), activation='relu', padding='same')(input_layer)
-    x = layers.Conv2D(16, (3, 3), activation='relu', padding='same')(x)
-    x = layers.MaxPool2D(pool_size=(2, 2), padding='same')(x)
-    x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(x)
-    x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(x)
-    x = layers.MaxPool2D(pool_size=(2, 2), padding='same')(x)
-    x = layers.Conv2D(64,(3, 3), padding='same', activation='relu')(x)
-    x = layers.Flatten()(x)
-    x = layers.Dense(64, activation='relu')(x)
-    x = layers.Dense(32, activation='relu')(x)
-    x = layers.Dense(8, activation='relu')(x)
-    output_layer = layers.Dense(1, activation='sigmoid')(x)
-    return models.Model(input_layer, output_layer)
+# todo use on_epoch_end for custom (correct) validation loss
+#from tensorflow.keras import backend as K
+#class printlearningrate(tf.keras.callbacks.Callback):
+#    def on_epoch_end(self, epoch, logs={}):
+#        optimizer = self.model.optimizer
+#        lr = K.eval(optimizer.lr)
+#        Epoch_count = epoch + 1
+#        print('\n', "Epoch:", Epoch_count, ', LR: {:.2f}'.format(lr))
 
 
+########################################################################
 model = build_cnn_from_params(params)
-model.summary()
-print()
-
-model.compile(optimizer='adam',
+optimizer = keras.optimizers.Adam(learning_rate=params['learning_rate'])
+model.compile(optimizer=optimizer,
               loss='binary_crossentropy',
               weighted_metrics=['accuracy'])
 
-history = model.fit(x_train, y_train, validation_split=0.25,
-                    epochs=500,
-                    batch_size=512,
-                    verbose=2,
-                    # class_weight={0: real_to_fake_ratio, 1: 1}
-                    sample_weight=weights,
-                    callbacks=callbacks
+model.summary()
+
+# todo make fit_params a dict in Parameters
+# history = model.fit(TrainHandler, 
+history = model.fit(TrainHandler, 
+                    validation_data=ValHandler,
+                    callbacks=callbacks,
+                    epochs=params['fit_params']['epochs'],
+                    verbose=2
                     )
 
 ### save model and history
-modelsavefile = modeldir + modelname + '.keras'
-historyfile = modeldir + modelname + '_history.npy'
+modelsavefile = params['modeldir'] + params['modelname'] + '.keras'
+historyfile = params['modeldir'] + params['modelname'] + '_history.npy'
 model.save(modelsavefile)
 np.save(historyfile, history.history)
-print('INFO: model saved as', modelsavefile)
-print('INFO: history saved as', historyfile)
+print('model saved as', modelsavefile)
+print('history saved as', historyfile)
 
-############################################################################
-### evaluate and print test accuracy
-test_loss, test_acc = model.evaluate(x_test,  y_test, verbose=0)
+
+
+##################################################################
+test_loss, test_acc = model.evaluate(TestHandler, verbose=params['fit_params']['verbose'])
 print('test_accuracy =', test_acc)
 
 ### plot training curves
-figname = modeldir + modelname + '_training.png'
-plot_training(history.history, test_acc, savename=figname)
+figname: str = params['modeldir'] + params['modelname'] + '_training.png'
+plot_training(history.history, test_acc, savename=figname)  # info printed inside function
 
 ##############################################################################
-### calculate and plot output
-y_pred: NDArray = model.predict(x_test, verbose=2).flatten()  # output is shape (..., 1)
+### calculate output
+y_pred: NDArray = model.predict(TestHandler, verbose=params['fit_params']['verbose']).flatten()  # output is shape (..., 1)
+savename: Filename = params['modeldir'] + params['modelname'] + '_pred.npy'
+np.save(savename, y_pred)
+print(f'INFO: prediction saves as {savename}')
+
+
+### plot output
 real: Mask = y_test.astype(bool)
 binning: Tuple[int, float, float] = (int(1/params['output_binwidth']), 0., 1.)
 
 fig, ax = plt.subplots(figsize=(10, 8))
 plot_output(ax, y_pred, real, binning)  # real and fake outputs are normalized separately
-ax.set_title('Output CNN')
+ax.set_title(f'Output {params["ModelName"]}')
 plt.tight_layout()
-figname: str = modeldir + modelname + '_output.png'
-fig.savefig(figname)
-print(f'INFO: model output saved as: {figname}')
+
+outputfile: Filename = params['modeldir'] + params['modelname'] + '_output.png'
+fig.savefig(outputfile)
+print(f'INFO: output saved as {outputfile}')
+##############################################################################
+### save parameters used
+paramfile: Filename = params['modelname'] + '_params.txt'
+params.save(paramfile)  # infoprint in save function
+
 
 
 print('FINISHED')
-
-
-
-

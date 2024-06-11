@@ -251,12 +251,12 @@ def build_cnn_from_params(parameters: Parameters) -> models.Model:
     x = layers.MaxPool2D(pool_size=(2, 2), padding='same')(x)
     x = layers.Conv2D(64,(3, 3), padding='same', activation='relu')(x)
     x = layers.Flatten()(x)
-    x = layers.concatenate(name='Features')([x, other_inputs])
+    x = layers.Concatenate(name='Features')([x, other_inputs])
     x = layers.Dense(64, activation='relu')(x)
     x = layers.Dense(32, activation='relu')(x)
     x = layers.Dense(8, activation='relu')(x)
     output_layer = layers.Dense(1, activation='sigmoid')(x)
-    return models.Model(input_layer, output_layer)
+    return models.Model(inputs=[input_layer, other_inputs], outputs=output_layer)
 
 
 
