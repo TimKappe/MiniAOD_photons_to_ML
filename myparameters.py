@@ -196,7 +196,7 @@ def build_vit_from_params(parameters: Parameters) -> keras.Model:
     # add pt and eta an pileup Input
     representation = layers.Concatenate(name='Features')([representation, other_inputs])
 
-    features = mlp(representation, hidden_units=parameters['mlp_head_units'], dropout_rate=parameters['dropout_rate'])
+    features = mlp(representation, hidden_units=parameters['mlp_head_units'], dropout_rate=parameters['mlp_dropout'])
 
     outputs = layers.Dense(1, activation='sigmoid')(features)
     model_ = keras.Model(inputs=[input_image, other_inputs], outputs=outputs)
