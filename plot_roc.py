@@ -17,8 +17,7 @@ import myplotparams
 from mynetworks import load_and_prepare_data
 from myparameters import Parameters, data_from_params, weights_from_params
 from myparameters import check_params_work_together
-from myparameters import get_training_slice, get_test_slice
-
+from myparameters import split_data
 # shorthands
 # layers = keras.layers
 # models = keras.models
@@ -139,28 +138,27 @@ def process_parser() -> Tuple[List[Parameters], Filename]:
 ### load and prepare the data
 param_list, figname = process_parser()
 df = pd.read_pickle(param_list[0]['dataframefile'])
-weights: NDArray = weights_from_params(param_list[0], test_set=True)
+weights_test = weights_from_params(param_list[0])[1]
 
-y_test = df['real'].to_numpy(dtype=int)[int(0.8*len(df)):]
+y_test = split_data(df['real'].to_numpy(dtype=int))[0]
 
 ### get the model predictions
 y_pred_list = [np.load(param['modeldir'] + param['modelname'] + '_pred.npy') for param in param_list]
-pred_bdt: NDArray = df['bdt3'].to_numpy()
-pred_bdt = get_test_slice(param_list[0], pred_bdt)
-#TODO filter out the photons with nan pileup
+pred_bdt = df['bdt3'].to_numpy()
+pred_bdt = split_data(param_list[0], pred_bdt)[1]
 
 ######################################################################################
 ### plot ROC
 fig1, ax1 = plt.subplots(1, 1, figsize=(10, 8))
 fig2, ax2 = plt.subplots(1, 1, figsize=(10, 8))
 fig3, ax3 = plt.subplots(1, 1, figsize=(10, 8))
-plot_roc(ax1, pred_bdt, y_test, weights, label='BDT')#, color='orange')
-plot_roc_classic(ax3, pred_bdt, y_test, weights, label='BDT')#, color='orange')
+plot_roc(ax1, pred_bdt, y_test, weights_test, label='BDT')#, color='orange')
+plot_roc_classic(ax3, pred_bdt, y_test, weights_test, label='BDT')#, color='orange')
 
 for i, param in enumerate(param_list):
-    plot_roc(ax1, y_pred_list[i], y_test, weights, label=param['modelname'])
-    plot_roc_classic(ax3, y_pred_list[i], y_test, weights, label=param['modelname'])
-    plot_roc_ratio(ax2, pred_bdt, y_pred_list[i], y_test, weights, label=f'{param["modelname"]}/BDT')
+    plot_roc(ax1, y_pred_list[i], y_test, weights_test, label=param['modelname'])
+    plot_roc_classic(ax3, y_pred_list[i], y_test, weights_test, label=param['modelname'])
+    plot_roc_ratio(ax2, pred_bdt, y_pred_list[i], y_test, weights_test, label=f'{param["modelname"]}/BDT')
 # ax2.set_title(None)
 # ax2.set_ylabel('ratio')
 fig1.tight_layout()

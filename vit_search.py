@@ -43,8 +43,6 @@ params = Parameters(load=paramfile)
 print('Parameters:')
 print(params)
 
-# TODO add shuffling to Handler when adding datasets together
-
 ### load and prepare labels, weights and other inputs (rechits get loaded in the RecHitsHandler)
 df: pd.DataFrame = pd.read_pickle(params['dataframefile'])
 y_train, y_test = split_data(params, df.real.to_numpy(dtype=int))
@@ -52,7 +50,7 @@ y_train, y_test = split_data(params, df.real.to_numpy(dtype=int))
 needs_scaling = []
 no_scaling = []
 for key in params['other_inputs']:
-    var = df[key].to_numpy()
+    var: NDArray = df[key].to_numpy()
     if key=='pt':
         var = np.log(var)
     if key in ['converted', 'convertedOneLeg']: 
@@ -60,10 +58,9 @@ for key in params['other_inputs']:
     else: 
         needs_scaling += [var]
 
-weights = weights_from_params(params, selection=None)
-weights_test = weights_from_params(params, test_set=True, selection=None)
+weights_train, weights_test = weights_from_params(params, selection=None)  # this is the training set only
 
-scaled_inputs_train, scaled_inputs_test = rescale_multiple(params, needs_scaling, weights)
+scaled_inputs_train, scaled_inputs_test = rescale_multiple(params, needs_scaling, weights_train)
 non_scaled_train, non_scaled_test = split_multiple(params, no_scaling)
 
 other_train_inputs = np.column_stack(scaled_inputs_train + non_scaled_train)
@@ -77,9 +74,9 @@ try:
     params['batch_size'] = params['fit_params']['batch_size']
 except:
     ReferenceError
-TrainHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights, 
+TrainHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights_train, 
                              params['batch_size'], params['image_size'], which_set='train')
-ValHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights, 
+ValHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights_train, 
                            params['batch_size'], params['image_size'], which_set='val')
 TestHandler = RechitHandler(rechitfile, other_test_inputs, y_test, weights_test, 
                            params['batch_size'], params['image_size'], which_set='test')

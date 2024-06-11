@@ -16,9 +16,8 @@ from mymodules import plot_training
 from mymodules import plot_output
 
 from myparameters import Parameters
-from myparameters import data_from_params, weights_from_params
-from myparameters import build_cnn_from_params
-from myparameters import rescale_multiple, split_data
+from myparameters import weights_from_params, build_cnn_from_params
+from myparameters import rescale_multiple, split_data, split_multiple
 print('my imports done')
 
 from typing import List, Tuple, Optional, Union
@@ -43,35 +42,28 @@ params = Parameters(load=paramfile)
 print('Parameters:')
 print(params)
 
-
-# TODO add shuffling to Handler when adding datasets together
-
-### load and prepare the data
+### load and prepare labels, weights and other inputs (rechits get loaded in the RecHitsHandler)
 df: pd.DataFrame = pd.read_pickle(params['dataframefile'])
 y_train, y_test = split_data(params, df.real.to_numpy(dtype=int))
-other_inputs = [df[key].to_numpy() for key in params['other_inputs']]
-pt = df.pt.to_numpy()
-eta = df.eta.to_numpy()
-rho = df.rho.to_numpy()
-HoE = df.HoE.to_numpy()
-trackIso = df.I_tr.to_numpy()
-hcalIso = df.hcalIso.to_numpy()
-converted = df.converted.to_numpy(dtype=int)
-convertedOneLeg = df.convertedOneLeg.to_numpy(dtype=int)
 
-weights = weights_from_params(params, selection=None)
-weights_test = weights_from_params(params, test_set=True, selection=None)
+needs_scaling = []
+no_scaling = []
+for key in params['other_inputs']:
+    var: NDArray = df[key].to_numpy()
+    if key=='pt':
+        var = np.log(var)
+    if key in ['converted', 'convertedOneLeg']: 
+        no_scaling += [var.astype(int)] 
+    else: 
+        needs_scaling += [var]
 
-needs_scaling = [np.log(pt), eta, rho, HoE, trackIso, hcalIso]
-# rescale other input variables
-scaled_inputs_train, scaled_inputs_test = rescale_multiple(params, needs_scaling, weights)
+weights_train, weights_test = weights_from_params(params, selection=None)  # this is the training set only
 
-converted_train, converted_test = split_data(params, converted)
-convertedOneLeg_train, convertedOneLeg_test = split_data(params, convertedOneLeg)
-other_train_inputs = scaled_inputs_train + [converted_train, convertedOneLeg_train]
-other_test_inputs = scaled_inputs_test + [converted_test, convertedOneLeg_test]
-other_train_inputs = np.column_stack(other_train_inputs)
-other_test_inputs = np.column_stack(other_test_inputs)
+scaled_inputs_train, scaled_inputs_test = rescale_multiple(params, needs_scaling, weights_train)
+non_scaled_train, non_scaled_test = split_multiple(params, no_scaling)
+
+other_train_inputs = np.column_stack(scaled_inputs_train + non_scaled_train)
+other_test_inputs = np.column_stack(scaled_inputs_test + non_scaled_test)
 
 ########################################################################
 rechitfile: Filename = params['rechitfile']
@@ -79,9 +71,9 @@ try:
     params['batch_size'] = params['fit_params']['batch_size']
 except:
     ReferenceError
-TrainHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights, 
+TrainHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights_train, 
                              params['batch_size'], params['image_size'], which_set='train')
-ValHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights, 
+ValHandler = RechitHandler(rechitfile, other_train_inputs, y_train, weights_train, 
                            params['batch_size'], params['image_size'], which_set='val')
 TestHandler = RechitHandler(rechitfile, other_test_inputs, y_test, weights_test, 
                            params['batch_size'], params['image_size'], which_set='test')

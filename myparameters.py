@@ -93,18 +93,14 @@ def data_from_params(parameters: Parameters, selection:Optional[Mask] = None) ->
     #     x_test = resize_images(x_test)
     return (x_train, y_train), (x_test, y_test) 
 
-def weights_from_params(parameters, test_set: bool = False, 
-                        selection: Optional[Mask] = None) -> NDArray:
+def weights_from_params(parameters, selection: Optional[Mask] = None) -> Tuple[NDArray, NDArray]:
     weights_ = np.load(parameters['weightfile'])
 
-    if selection is None:
-        selection = np.ones(weights_.shape, dtype=bool)
-    weights_ = weights_[selection]
-    if test_set: 
-        weights_ = get_test_slice(parameters, weights_)
-    else:
-        weights_ = get_training_slice(parameters, weights_)
-    return weights_
+    if selection is not None:
+        weights_ = weights_[selection]
+    train, test = split_data(parameters, weights_)
+    return train, test
+
 
 def get_training_slice(parameters: Parameters, data: NDArray) -> NDArray:
     stop_idx: int = int( (1-parameters['test_split']) * len(data) )
@@ -164,40 +160,6 @@ def check_params_work_together(parameter_list: List[Parameters],
             wrong_iems = [quantities[idx] for idx in range(len(quantities)) if ~matches[i]]
             message = f'The following values in the {i+1}. Parameters do not match the first one: {wrong_iems}'
             raise AssertionError(message)
-
-
-# # vit without eta/pt:
-# def build_vit_from_params(parameters: Parameters) -> keras.Model:
-#     num_patches = (parameters['image_size'] // parameters['patch_size']) ** 2
-
-#     input_image = layers.Input(shape=parameters['input_shape'])
-#     patches = Patches(parameters['patch_size'])(input_image)
-#     encoded_patches = PatchEncoder(num_patches, parameters['projection_dim'])(patches)
-    
-#     for _ in range(parameters['transformer_layers']):
-#         x1 = layers.LayerNormalization(epsilon=parameters['layer_norm_epsilon'])(encoded_patches)
-#         attention_output = layers.MultiHeadAttention(
-#             num_heads=parameters['num_heads'], key_dim=parameters['projection_dim'], dropout=parameters['dropout_rate']
-#         )(x1, x1)
-#         # Skip connection 1.
-#         x2 = layers.Add()([attention_output, encoded_patches])
-#         # Layer normalization 2.
-#         x3 = layers.LayerNormalization(epsilon=parameters['layer_norm_epsilon'])(x2)
-#         # MLP.
-#         x3 = mlp(x3, hidden_units=parameters['transformer_units'], dropout_rate=parameters['dropout_rate'])
-#         # Skip connection 2.
-#         encoded_patches = layers.Add()([x3, x2])
-
-#     # Create a [batch_size, projection_dim] tensor.
-#     representation = layers.LayerNormalization(epsilon=parameters['layer_norm_epsilon'])(encoded_patches)
-#     representation = layers.Flatten()(representation)
-#     representation = layers.Dropout(parameters['final_dropout'])(representation)
-#     # Add MLP.
-#     features = mlp(representation, hidden_units=parameters['mlp_head_units'], dropout_rate=parameters['dropout_rate'])
-
-#     outputs = layers.Dense(1, activation='sigmoid')(features)
-#     model_ = keras.Model(inputs=input_image, outputs=outputs)
-#     return model_
 
 
 def build_vit_from_params(parameters: Parameters) -> keras.Model:
@@ -260,28 +222,34 @@ def build_cnn_from_params(parameters: Parameters) -> models.Model:
 
 
 
-def rescale(parameter: Parameters, data: NDArray, weights: NDArray) -> Tuple[NDArray, NDArray]:
-    split_idx: int = int((1-parameter['test_split'])*len(data))
-    train = data[:split_idx]
-    test = data[split_idx:]
+def rescale(parameter: Parameters, data: NDArray, weights_train: NDArray) -> Tuple[NDArray, NDArray]:
+    train, test = split_data(parameter, data)
     if len(data.shape)==1:
         train = train.reshape(-1,1)
         test = test.reshape(-1,1)
 
     scaler = StandardScaler()
-    scaler.fit(train.reshape(-1,1), sample_weight=weights[:split_idx])
+    scaler.fit(train.reshape(-1,1), sample_weight=weights_train)
     scaled_train = scaler.transform(train)
     scaled_test = scaler.transform(test)
     return scaled_train, scaled_test
 
-def rescale_multiple(parameter: Parameters, data_list: List[NDArray], weights: NDArray
+def rescale_multiple(parameter: Parameters, data_list: List[NDArray], weights_train: NDArray
                      ) -> Tuple[List[NDArray], List[NDArray]]:
+    """
+    data: all data to be rescaled (train, val and test)
+    weights: only training, but will otherwise be split
+    """
     train_list = []
     test_list = []
+    # check that data and weights match in (relative) size
+    should = int(len(data_list[0]) * (1-parameter['test_split']))
+    if should != len(weights_train):
+        raise ValueError(f"shapes of data and weights do not fit together: \n"
+                         f"data { data_list[0].shape} \nweights: {weights_train.shape} \nshould be: {should}")
+
     for data in data_list:
-        print(data.shape)
-        train, test = rescale(parameter, data, weights)
-        print(train.shape, test.shape)
+        train, test = rescale(parameter, data, weights_train)
         train_list += [train]
         test_list += [test]
     return train_list, test_list
