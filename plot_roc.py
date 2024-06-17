@@ -63,7 +63,7 @@ def plot_roc(axis: plt.Axes, predictions: NDArray, true_values: NDArray, weights
     axis.legend(loc='upper right')
     plt.tight_layout()
 
-def plot_roc_classic(axis: plt.Axes, predictions: NDArray, true_values: NDArray, weight: NDArray,
+def plot_roc_classic(axis: plt.Axes, predictions: NDArray, true_values: NDArray, weights: NDArray,
              threshold: Union[float, None] = 0.6, fifty_percent_line: bool = False, **kwargs) -> None:
     """plots ROC as usual in HEP = true positive rate vs background rejection (1/fpr), xlim will be > threshold
     if threshold is undesiered, set to any negative value or None"""
@@ -122,43 +122,62 @@ def plot_roc_ratio(axis: plt.Axes, predictions_base: NDArray, predictions_compar
     plt.tight_layout()
 
 
-def process_parser() -> Tuple[List[Parameters], Filename]:
+def process_parser() -> Tuple[List[Parameters], Union[Filename, str], Filename]:
     parser = argparse.ArgumentParser(description='plot roc of models ', prog='plot_roc_dist.py')
     parser.add_argument('parameterfilenames', nargs='+', help='model to be used')
+    parser.add_argument('--base', help='network to compare to in ratio plot. if not set, the BDT is used')
     parser.add_argument('--figname', default='models/roc.png')
 
     args = parser.parse_args()
     param_list_: List[Parameters] = [Parameters(load=file) for file in args.parameterfilenames]
     check_params_work_together(param_list_)
 
-    figname: Filename = args.figname
-    return param_list_, figname
+    figname_: Filename = args.figname
+    base_: Optional[Union[Filename, str]] = args.base
+    if base_ is None:
+        base_ = 'bdt'
+    print(f'\nBase is {base_}')
+    return param_list_, base_, figname_
 
 
 ### load and prepare the data
-param_list, figname = process_parser()
-df = pd.read_pickle(param_list[0]['dataframefile'])
-weights_test = weights_from_params(param_list[0])[1]
+param_list, base, figname = process_parser()
 
-y_test = split_data(df['real'].to_numpy(dtype=int))[0]
+df = pd.read_pickle(param_list[0]['dataframefile'])
+_, weights_test = weights_from_params(param_list[0])
+
+_, y_test = split_data(param_list[0], df['real'].to_numpy(dtype=int))
 
 ### get the model predictions
 y_pred_list = [np.load(param['modeldir'] + param['modelname'] + '_pred.npy') for param in param_list]
-pred_bdt = df['bdt3'].to_numpy()
-pred_bdt = split_data(param_list[0], pred_bdt)[1]
+
+bdt = df['bdt3'].to_numpy()
+_, pred_bdt = split_data(param_list[0], bdt)
+
+
+# set/load base pred to compare to
+if base.lower() == 'bdt':
+    base_name = 'BDT'
+    base_pred = pred_bdt
+else:
+    base_params = Parameters(load=base)
+    base_name = base_params['modelname']
+    base_pred = np.load(base_params['modeldir'] + base_params['modelname'] + '_pred.npy')
 
 ######################################################################################
 ### plot ROC
 fig1, ax1 = plt.subplots(1, 1, figsize=(10, 8))
 fig2, ax2 = plt.subplots(1, 1, figsize=(10, 8))
 fig3, ax3 = plt.subplots(1, 1, figsize=(10, 8))
-plot_roc(ax1, pred_bdt, y_test, weights_test, label='BDT')#, color='orange')
-plot_roc_classic(ax3, pred_bdt, y_test, weights_test, label='BDT')#, color='orange')
+plot_roc(ax1, pred_bdt, y_test, weights_test, label='BDT', color='grey')#, color='orange')
+plot_roc(ax1, base_pred, y_test, weights_test, label=base_name, color='black')
+plot_roc_classic(ax3, pred_bdt, y_test, weights_test, label='BDT', color='grey')#, color='orange')
+plot_roc_classic(ax3, base_pred, y_test, weights_test, label=base_name, color='black')
 
 for i, param in enumerate(param_list):
     plot_roc(ax1, y_pred_list[i], y_test, weights_test, label=param['modelname'])
     plot_roc_classic(ax3, y_pred_list[i], y_test, weights_test, label=param['modelname'])
-    plot_roc_ratio(ax2, pred_bdt, y_pred_list[i], y_test, weights_test, label=f'{param["modelname"]}/BDT')
+    plot_roc_ratio(ax2, base_pred, y_pred_list[i], y_test, weights_test, label=f'{param["modelname"]}/{base_name}')
 # ax2.set_title(None)
 # ax2.set_ylabel('ratio')
 fig1.tight_layout()
@@ -171,8 +190,8 @@ if figname is not None:
     fig3name = f'{figname.split(".")[0]}_classic.png'
     fig1.savefig(figname)
     fig2.savefig(fig2name)
-    fig3.savefig(fig3name)
-    print('INFO: fig saves as:', figname, fig2name, fig3name)
+    # fig3.savefig(fig3name)  # don't usually need classic anymore
+    print('INFO: fig saves as:', figname, fig2name)#, fig3name)
 
 
 print('FINISHED')
