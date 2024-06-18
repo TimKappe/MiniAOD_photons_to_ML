@@ -27,14 +27,15 @@ def shift_indices(arr: NDArray, start: int) -> NDArray:
     arr += diff
     return arr
 
-def reset_sparse(sparse: Sparse, trafo: bool = True, shift: int = 0) -> Sparse:
+def reset_sparse(sparse: Sparse, trafo: bool = True, shift: int = -1) -> Sparse:
     """
     use this function to perform a resort or shift on the sparse_rechit instead of the photon_idx array directly
+    it shifts the starting index TO shift, not by shift. shift=-1 means no shift
     """
     values, photon_idxs, *image_idxs = sparse
     if trafo:
         photon_idxs = transform_to_indices(photon_idxs)
-    if shift > 0:
+    if shift >= 0:
         photon_idxs = shift_indices(photon_idxs, shift)
     out = (values, photon_idxs, *image_idxs)
     return out
@@ -135,21 +136,22 @@ def combine_sparse(sparse_seq: Sequence[Sparse]) -> Sparse:
     num_photons = 0
     for i, sparse in enumerate(sparse_seq):
         current_length = lengths[i]
-        this_slice = slice(idx, idx + current_length)
+        this_slice = slice(idx, idx + current_length)  # current length is num pixels
         # shift photon_idxs, so it is continues and unique:
         # having trafo=True is a little inefficient as it shoul be sorted already, but resorting anyways should be safer
-        sparse = reset_sparse(sparse, trafo=False, shift=num_photons)  
+        sparse = reset_sparse(sparse, trafo=True, shift=num_photons)
         for j in range(4):
             if j==0:
                 new_values[this_slice] = sparse[j]
             else:
                 new_indices[j-1, this_slice] = sparse[j]
         idx += current_length
-        num_photons += sparse[1][-1]
+        num_photons += get_number_of(sparse)
     out = (new_values, *new_indices)
     return out
 
-
+def get_number_of(sparse: Sparse) -> int:
+    return np.unique(sparse[1]).size
 
 
 

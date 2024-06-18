@@ -1,3 +1,4 @@
+import keras.regularizers
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -197,11 +198,12 @@ class PatchEncoder(layers.Layer):
         return config
 
 # Define MLP
-def mlp(x: Layer, hidden_units: List[int], dropout_rate: float) -> Layer:
+def mlp(x: Layer, hidden_units: List[int], dropout_rate: float, l2_norm: float) -> Layer:
     """adds MLP on top of given layer
     MLP consists of one Dense layer with as many nodes per entry in hiddenunits"""
+    l2 = keras.regularizers.l2
     for units in hidden_units:
-        x = layers.Dense(units, activation=tf.nn.gelu)(x)
+        x = layers.Dense(units, activation=tf.nn.gelu,  kernel_regularizer=l2(l2_norm))(x)
         x = layers.Dropout(dropout_rate)(x)
     return x
 

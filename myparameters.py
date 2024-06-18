@@ -184,7 +184,7 @@ def build_vit_from_params(parameters: Parameters) -> keras.Model:
         # Layer normalization 2.
         x3 = layers.LayerNormalization(epsilon=parameters['layer_norm_epsilon'])(x2)
         # MLP.
-        x3 = mlp(x3, hidden_units=parameters['transformer_units'], dropout_rate=parameters['dropout_rate'])
+        x3 = mlp(x3, hidden_units=parameters['transformer_units'], dropout_rate=parameters['dropout_rate'], l2_norm=0.)
         # Skip connection 2.
         encoded_patches = layers.Add()([x3, x2])
 
@@ -196,7 +196,7 @@ def build_vit_from_params(parameters: Parameters) -> keras.Model:
     # add pt and eta an pileup Input
     representation = layers.Concatenate(name='Features')([representation, other_inputs])
 
-    features = mlp(representation, hidden_units=parameters['mlp_head_units'], dropout_rate=parameters['mlp_dropout'])
+    features = mlp(representation, hidden_units=parameters['mlp_head_units'], dropout_rate=parameters['mlp_dropout'], l2_norm=parameters['mlp_l2'])
 
     outputs = layers.Dense(1, activation='sigmoid')(features)
     model_ = keras.Model(inputs=[input_image, other_inputs], outputs=outputs)
