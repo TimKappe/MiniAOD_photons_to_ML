@@ -7,14 +7,18 @@
 *.npy
 *.keras
 
+*params.txt
+hyperparameters.py
+
 test*
 
 data/
 plots/
 models/
-jobs/logs/
-jobs/outs/
-jobs/errs/
+jobs/
+#jobs/logs/
+#jobs/outs/
+#jobs/errs/
 
 
 crab_projects
