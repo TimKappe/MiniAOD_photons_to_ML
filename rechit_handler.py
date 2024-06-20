@@ -67,6 +67,9 @@ class RechitHandler(Sequence):
         elif which_set=='test': 
             use_data = slice(0, None)
             use_photons = (int(0.8*num_photons_all_sets) <= self.idx_photon)
+        elif which_set=='all':  
+            use_data = slice(0, None)  # all data
+            use_photons = (-1 <= self.idx_photon)  # all photons
         else: raise ValueError('set needs to be "train", "val" or "test')
 
         # TODO the error is here!!!
