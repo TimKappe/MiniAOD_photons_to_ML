@@ -11,7 +11,7 @@ from get_preselection import get_total_preselection
 
 from typing import List, Tuple, Union
 from numpy.typing import NDArray
-from mytypes import Filename, Particle
+from mytypes import Filename, Particle, Mask
 
 
 ROOT.gROOT.SetBatch(True)
@@ -190,6 +190,64 @@ def select_rechits(recHits, photon_seed, distance=5) -> NDArray[float]:
 
     return rechits_array
 
+def detect_mode(file: Filename) -> Tuple[str, str]:
+    """decide if tag and probe is being run and if it data or MC based on the filename"""
+    if '/EGamma/Run2022G-19Dec2023-v1/MINIAOD' in file:  # Zee data
+        mode = 'tagprobe'
+        kind = 'data'
+    elif 'DYto2L-2Jets_MLL-50' in file:  # Zee sim
+        mode = 'tagprobe'
+        kind = 'mc'
+    else:
+        mode = None  # TODO choose the default for non tag and probe later
+        kind = None
+    return mode, kind
+
+def matches_trigger(triggerhandle) -> bool:
+    pass
+
+def passes_tag_sel(df: dict) -> bool:
+    sel = df['pt'] > 40
+    sel &= df['hasPixelSeed']  # pixelSeed
+    sel &= df['chargedHadronPFPVIso'] < 20
+    sel &= (df['chargedHadronPFPVIso'] / df['pt']) < 0.3
+    return sel
+
+def get_zee_mc_mask(df: dict) -> Mask:
+    pass
+
+def get_inv_mass(tag: dict, probe: dict) -> float:
+    mass = np.sqrt(2*tag['pt']*probe['pt'] * (
+                    np.cosh(tag['eta']-probe['eta']) 
+                    - np.cos(tag['phi'] - probe['phi'])
+                    )
+                   )
+    return mass
+
+def tagprobe_matching(df_event: List[dict], rechits_event: list[NDArray]) -> Tuple[List[dict], List[NDArray]]:
+    """returns empty list to skip events not matching the criteria (instead of using continue in an loop)"""
+    if len(df_event)!=2: return [], []
+    part1, part2 = df_event
+    inv_mass = get_inv_mass(part1, part2)
+    if not ((80 < inv_mass) & (inv_mass < 100)): return [], []
+    if passes_tag_sel(part1): 
+        if passes_tag_sel(part2):
+            tag_idx = np.random.choice([0,1])
+        else: 
+            tag_idx = 0
+    elif passes_tag_sel(part2):
+        tag_idx = 1
+    else: 
+        return [], []
+    probe_idx = 1 - tag_idx  # 0 if 1 or 1 if 0
+    df_event[tag_idx]['tagprobe'] = 'tag'
+    df_event[probe_idx]['tagprobe'] = 'probe'
+    for i, df in enumerate(df_event):
+        df_event[i]['pair_mass'] = inv_mass
+        # set other pair quantities here
+    # rechits_event = [rechits_event[probe_idx]]
+    rechits_event.pop(tag_idx)  # I only want the rechits of the probe
+    return df_event, rechits_event
 
 def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray[NDArray[float]]]:
     """loop through all events and photons per event in a given file, read ECAL recHits and photon attributes."""
@@ -199,25 +257,34 @@ def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray
     RecHitHandleEB, RecHitLabelEB = Handle("edm::SortedCollection<EcalRecHit,edm::StrictWeakOrdering<EcalRecHit> >"), "reducedEgamma:reducedEBRecHits"
     RecHitHandleEE, RecHitLabelEE = Handle("edm::SortedCollection<EcalRecHit,edm::StrictWeakOrdering<EcalRecHit> >"), "reducedEgamma:reducedEERecHits"
     rhoHandle, rhoLabel = Handle("std::double"), "fixedGridRhoAll"
+    triggerHandle, triggerLabel = Handle("edm::TriggerResults"), ""
     events = Events(file)
 
     # lists to fill in the eventloop:
     df_list: List[dict] = []  # save data in nested list to convert to DataFrame later
     rechit_list: List[NDArray] = []  # save data in nested list to convert to DataFrame later
+    mode, kind = detect_mode(file)
+    mode, kind = 'tagprobe', 'mc'
     for i, event in enumerate(events):
         if i == 0:
             print("\tINFO: file open sucessful, starting Event processing")
-        elif i % 10_000 == 0:
-            print(f"\tINFO: processing event {i}.")
+        elif i+1 % 10_000 == 0:
+            print(f"\tINFO: processing event {i+1}.")
         # print("\t INFO: processing event", i)
         event.getByLabel(photonLabel, photonHandle)
         event.getByLabel(RecHitLabelEB, RecHitHandleEB)
         event.getByLabel(RecHitLabelEE, RecHitHandleEE)
         event.getByLabel(rhoLabel, rhoHandle)
+        event.getByLabel(triggerLabel, triggerHandle)
 
+        if mode == 'tagprobe' and kind == 'data':
+            if not matches_trigger(triggerHandle): continue
+
+        df_event: List[dict] = []
+        rechits_event: List[NDArray] = []
         for photon in photonHandle.product():
-            if not get_detector_ID(photon): 
-                continue
+            # only use barrel
+            if not get_detector_ID(photon): continue
             
             # dataframe
             seed_id = photon.superCluster().seed().seed()
@@ -227,13 +294,16 @@ def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray
             photonAttributes["rho"] = rhoHandle.product()[0]
             photonAttributes["seed_ieta"] = seed_id.ieta()
             photonAttributes["seed_iphi"] = seed_id.iphi()
+            if mode=='tagprobe':
+                photonAttributes["hasPixelSeed"] = photon.hasPixelSeed()  # bool
+                photonAttributes["chargedHadronPFPVIso"] = photon.chargedHadronPFPVIso() # float
             
-            if not get_total_preselection(photonAttributes):
-                continue
-
+            # add event only after preselection
+            use_eveto = False if mode=='tagprobe' else True
+            if not get_total_preselection(photonAttributes, use_eveto=use_eveto): continue
 
             # rechits
-            # usung photon.EEDetId() directly gives the same value but errors in select_recHits
+            # using photon.EEDetId() directly gives the same value but errors in select_recHits
             # because it has no attribute ieta
             if photon.superCluster().seed().seed().subdetId() == 1:
                 recHits = RecHitHandleEB.product()
@@ -241,36 +311,38 @@ def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray
                 recHits = RecHitHandleEE.product()
             rechits_array = select_rechits(photon_seed=seed_id, recHits=recHits, distance=rechitdistance)
 
+            # filter empty rechits
             if rechits_array.sum()==0: continue
 
-            # add event only after filtering barrel, preselection and empty rechits
-            df_list += [photonAttributes]  # list of dicts with the values of the respective photon
-            rechit_list += [rechits_array]
-
+            df_event += [photonAttributes]  # list of dicts with the values of the respective photon
+            rechits_event += [rechits_array]
+        if mode=='tagprobe':
+            df_event, rechits_event = tagprobe_matching(df_event, rechits_event)
+        df_list += df_event
+        rechit_list += rechits_event
     print('INFO: all events processed')
 
-    df: pd.DataFrame = pd.DataFrame(df_list)  # labels are taken from the dicts in data_list
-
-
+    df = pd.DataFrame(df_list)  # labels are taken from the dicts in data_list
     rechits = np.array(rechit_list, dtype=np.float32)
     return df, rechits
 
 
-def process_file(file: Filename) -> None:
 
-    # determine datasite from filename
+
+def determine_datasite(file: Filename) -> str:
     datasite = 'T2_US_Wisconsin'  # high pt, g+jets, postEE
     if 'MGG' in file:  # mgg cut, g+jets, postEE
         datasite = 'T2_US_Caltech'  
     elif '10to40' in file:  # low pt, g+jets, postEE
         datasite = 'T1_US_FNAL_Disk'  
-    if datasite is not None:
-        file = '/store/test/xrootd/' + datasite + file
-    file = 'root://xrootd-cms.infn.it/' + file
+    elif '/EGamma/Run2022G-19Dec2023-v1/MINIAOD' in file:  # Zee data
+        datasite = 'T1_US_FNAL_Disk'  
+    elif 'DYto2L-2Jets_MLL-50' in file:  # Zee sim
+        datasite = 'T1_US_FNAL_Disk' 
+    return datasite
 
-    df, rechits = main(file, rechitdistance=16)
-
-    # save stuff
+def get_save_loc() -> str:
+    """check the date and create a new directory to save the output"""
     current_date = date.today()
     formatted_date = current_date.strftime("%d%B%Y")
     savedir = f'./output{formatted_date}/'
@@ -279,11 +351,23 @@ def process_file(file: Filename) -> None:
     if not (os.path.exists(savedir + "recHits/") and  os.path.exists(savedir + "df/")):
         os.makedirs(savedir + "df/")
         os.makedirs(savedir + "recHits/")
+    return savedir
+    
 
+def process_file(file: Filename) -> None:
+
+    datasite = determine_datasite(file)  # determine datasite from filename
+    datasite = None
+    if datasite is not None:
+        file = '/store/test/xrootd/' + datasite + file
+    file = 'root://xrootd-cms.infn.it/' + file
+    df, rechits = main(file, rechitdistance=16)
+
+    # save stuff
+    savedir = get_save_loc()
     outname: str = file.split('/')[-1].split('.')[0]  # name of input file without directory and ending
     dfname: Filename = savedir + 'df/' + outname + '.pkl'
     rechitname: str = savedir + 'recHits/' + outname + '.npy'
-
 
     df.to_pickle(dfname)
     print('INFO: photon df file saved as:', dfname)
@@ -295,6 +379,10 @@ def process_file(file: Filename) -> None:
 
 if __name__ == '__main__':
     # high pt test file:
-    process_file('/store/mc/Run3Summer22EEMiniAODv4/GJet_PT-40_DoubleEMEnriched_TuneCP5_13p6TeV_pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/30000/cb93eb36-cefb-4aea-97aa-fcf8cd72245f.root')
+    # process_file('/store/mc/Run3Summer22EEMiniAODv4/GJet_PT-40_DoubleEMEnriched_TuneCP5_13p6TeV_pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/30000/cb93eb36-cefb-4aea-97aa-fcf8cd72245f.root')
     # mgg test file:
     #process_file('/store/mc/Run3Summer22EEMiniAODv4/GJet_PT-40_DoubleEMEnriched_MGG-80_TuneCP5_13p6TeV_pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/50000/d9c395aa-9eee-426a-944f-9ef41058f2d3.root')
+    # zee mc:
+    process_file('/store/mc/Run3Summer22EEMiniAODv4/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6_ext2-v2/2820000/62dad405-af8f-4f51-ae23-b5b4619eb570.root')
+    # zee data:
+    # process_file('/store/data/Run2022G/EGamma/MINIAOD/19Dec2023-v1/2560000/44613402-63f2-4bf0-9485-36b3ab13d45f.root')

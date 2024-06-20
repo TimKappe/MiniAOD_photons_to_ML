@@ -47,9 +47,12 @@ def get_preselection(df: Union[pd.DataFrame, dict]) -> Mask:
     total_mask = pt & eta & shower_shape & one_of
     return total_mask
 
-def get_total_preselection(df: Union[pd.DataFrame, dict]) -> Mask:
-    """adds eveto to preselection and filters NaNs in rho"""
-    return get_preselection(df) & df['eveto'] & (~np.isnan(df['rho']))
+def get_total_preselection(df: Union[pd.DataFrame, dict], use_eveto: bool = True) -> Mask:
+    """adds eveto (if desired) to preselection and filters NaNs in rho"""
+    sel = get_preselection(df) & (~np.isnan(df['rho']))
+    if use_eveto:
+        sel = sel & df['eveto']
+    return sel
 
 
 if __name__ == "__main__":
