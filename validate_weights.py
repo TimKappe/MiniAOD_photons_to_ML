@@ -6,10 +6,11 @@ import boost_histogram as bh
 import functools
 import operator
 import pickle
-import myplotparams
 
 from typing import Optional, Tuple, Union
 from mytypes import Mask, NDArray, Filename
+
+import myplotparams
 
 #########################################################
 ### plot 1d reweighted dists as crosschecks
@@ -43,17 +44,17 @@ def compare_1d(ax_: plt.Axes, hist_axes: bh.axis, data: NDArray, weights_: NDArr
         plot_hist(ax_, original_fake, label='unweighted fake', color='orange', alpha=0.8)
         plot_hist(ax_, weighted_fake, label='weighted fake', ls='--', color='red')
     if which=='real':
-        plot_hist(ax_, original_fake, label='fake', color='blue')
-        plot_hist(ax_, original_real, label='unweighted real', color='orange', alpha=0.8)
-        plot_hist(ax_, weighted_real, label='weighted real', ls='--', color='red')
+        plot_hist(ax_, original_fake, label='fake', color='blue', linewidth=3)
+        plot_hist(ax_, original_real, label='unweighted real', color='orange', linewidth=3)
+        plot_hist(ax_, weighted_real, label='weighted real', ls='--', color='red', linewidth=3)
     ax_.set_ylim(0, None)
     if 'xlabel' in kwargs:
         ax_.set_xlabel(kwargs.get('xlabel'))
 
 def plot_bin_edges(bin_edges: NDArray) -> None:
     for edge in bin_edges:
-        ax.axvline(edge, ls='--', alpha=0.5, color='grey')
-    ax.axvline(edge, ls='--', alpha=0.5, color='grey', label='bin edges')  # do the last again for the legend
+        ax.axvline(edge, ls='--', alpha=0.9, color='grey')
+    ax.axvline(edge, ls='--', alpha=0.9, color='grey', label='bin edges')  # do the last again for the legend
 
 def plot_weights(ax_: plt.Axes, hist_axes: bh.axis, weights_: NDArray, 
                  normalize: bool = False, **kwargs) -> None:
@@ -69,14 +70,14 @@ def plot_weights(ax_: plt.Axes, hist_axes: bh.axis, weights_: NDArray,
 
 
 
-dataframefile: Filename = 'data/new_data_pre.pkl'
+dataframefile: Filename = 'data/data_32x32_high.pkl'
 histfile: Filename = 'data/hist_weight.pkl'
 df = pd.read_pickle(dataframefile)
 pt = df.pt
 eta = df.eta
 real: Mask = df.real
-weights_fake = np.load('data/weights_fake.npy')
-weights_real = np.load('data/weights_real.npy')
+weights_real = np.load('data/weights_32x32_high.npy')
+# weights_fake = np.load('data/weights_fake.npy')
 
 
 def get_bins_from_length(start: float, stop: float, length: float) -> Tuple[int, float, float]:
@@ -84,7 +85,7 @@ def get_bins_from_length(start: float, stop: float, length: float) -> Tuple[int,
     return (count, start, stop)
 
 pt_validation_bins = get_bins_from_length(15, 275, 1)
-eta_validation_bins = (60, -3, 3)
+eta_validation_bins = (30, -1.5, 1.5)
 
 with open(histfile, "rb") as f:
     hist: bh.Histogram = pickle.load(f)
@@ -97,33 +98,36 @@ eta_bins: NDArray = hist.axes[1].edges
 
 
 ############################################################################################################
-fig, ax = plt.subplots(figsize=(14, 10))
-compare_1d(ax, bh.axis.Regular(*pt_validation_bins), pt, weights_fake, real, which='fake', exclude=(pt > 250))
-for edge in pt_bins:
-    ax.axvline(edge, ls='--', alpha=0.5, color='grey')
-ax.axvline(edge, ls='--', alpha=0.5, color='grey', label='bin edges')  # do the last again for the legend
-ax.legend(loc='upper right')
-ax.set_xlabel('$p_T$ [GeV]')
-plt.tight_layout()
-fig.savefig('plots/reweighting_fake_pt.png')
+# fig, ax = plt.subplots(figsize=(10, 8))
+# compare_1d(ax, bh.axis.Regular(*pt_validation_bins), pt, weights_fake, real, which='fake', exclude=(pt > 250))
+# for edge in pt_bins:
+#     ax.axvline(edge, ls='--', alpha=0.9, color='grey')
+# ax.axvline(edge, ls='--', alpha=0.9, color='grey', label='bin edges')  # do the last again for the legend
+# ax.legend(loc='upper right')
+# ax.set_xlabel('$p_T$ [GeV]')
+# plt.tight_layout()
+# fig.savefig('plots/reweighting_fake_pt.png')
 
 
-fig, ax = plt.subplots(figsize=(14, 10))
-compare_1d(ax, bh.axis.Regular(*eta_validation_bins), eta, weights_fake, real, which='fake', exclude=(pt > 250))
-for edge in eta_bins:
-    ax.axvline(edge, ls='--', alpha=0.5, color='grey')
-ax.axvline(edge, ls='--', alpha=0.5, color='grey', label='bin edges')  # do the last again for the legend
-ax.legend(loc='lower center')
-ax.set_xlabel('$\eta$')
-plt.tight_layout()
-fig.savefig('plots/reweighting_fake_eta.png')
+# fig, ax = plt.subplots(figsize=(10, 8))
+# compare_1d(ax, bh.axis.Regular(*eta_validation_bins), eta, weights_fake, real, which='fake', exclude=(pt > 250))
+# for edge in eta_bins:
+#     ax.axvline(edge, ls='--', alpha=0.9, color='grey')
+# ax.axvline(edge, ls='--', alpha=0.9, color='grey', label='bin edges')  # do the last again for the legend
+# ax.legend(loc='lower center')
+# ax.set_xlabel('$\eta$')
+# plt.tight_layout()
+# fig.savefig('plots/reweighting_fake_eta.png')
 
 ############################################################################################################
-fig, ax = plt.subplots(figsize=(14, 12))
+fig, ax = plt.subplots(figsize=(10, 8))
 compare_1d(ax, bh.axis.Regular(*pt_validation_bins), pt, weights_real, real, which='real', exclude=(pt > 250))
 plot_bin_edges(pt_bins)
 ax.legend(loc='upper right')
 ax.set_xlabel('$p_T$ [GeV]')
+ax.set_ylabel('density')
+ax.set_xlim(0, 270)
+ax.grid(False)
 plt.tight_layout()
 fig.savefig('plots/reweighting_real_pt.png')
 
@@ -132,12 +136,19 @@ ax.set_ylim(0, 0.04)
 fig.savefig('plots/reweighting_real_pt_linear.png')
 
 
-
-fig, ax = plt.subplots(figsize=(14, 12))
-compare_1d(ax, bh.axis.Regular(*eta_validation_bins), eta, weights_real, real, which='real', exclude=(pt > 250))
+eta_validation_bins = np.arange(-1.5, 1.5, 0.1)
+# eta_validation_bins[0] = -1.44
+# eta_validation_bins[-1] = 1.44
+hist_axis =  bh.axis.Variable(eta_validation_bins)
+fig, ax = plt.subplots(figsize=(10, 8))
+compare_1d(ax, hist_axis, eta, weights_real, real, which='real', exclude=(pt > 250))
 plot_bin_edges(eta_bins)
 ax.legend(loc='lower center')
 ax.set_xlabel('$\eta$')
+ax.set_ylabel('density')
+ax.set_xlim(-1.44, 1.44)
+ax.set_ylim(1e-3, None)
+ax.grid(False)
 plt.tight_layout()
 fig.savefig('plots/reweighting_real_eta.png')
 
@@ -148,16 +159,18 @@ fig.savefig('plots/reweighting_real_eta_linear.png')
 weights_real_bins = (20, 0, 0.3)
 weights_fake_bins = (25, -1, 85)
 #
-fig, ax = plt.subplots(figsize=(14, 12))
-plot_weights(ax, bh.axis.Regular(*weights_fake_bins), weights_fake, label='fake weights')
-ax.legend(loc='upper right')
-plt.tight_layout()
-fig.savefig('plots/reweighting_fake_weights.png')
+# fig, ax = plt.subplots(figsize=(10, 8))
+# plot_weights(ax, bh.axis.Regular(*weights_fake_bins), weights_fake, label='fake weights')
+# ax.legend(loc='upper right')
+# plt.tight_layout()
+# fig.savefig('plots/reweighting_fake_weights.png')
 
 
-fig, ax = plt.subplots(figsize=(14, 12))
+fig, ax = plt.subplots(figsize=(10, 8))
 plot_weights(ax, bh.axis.Regular(*weights_real_bins), weights_real, label='real weights')
 ax.legend(loc='upper right')
+ax.set_ylabel('density')
+ax.grid()
 plt.tight_layout()
 fig.savefig('plots/reweighting_real_weights.png')
 

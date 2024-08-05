@@ -13,36 +13,6 @@ from typing import Iterable
 from numpy.typing import NDArray
 from mytypes import Mask, Filename
 
-import myplotparams
-
-# my functions
-from mynetworks import load_and_prepare_data
-from myparameters import Parameters, data_from_params, weights_from_params
-from myparameters import check_params_work_together
-from myparameters import split_data
-# shorthands
-# layers = keras.layers
-# models = keras.models
-# tf.get_logger().setLevel('ERROR')
-
-
-def process_parser() -> Tuple[List[Parameters], Union[Filename, str], Filename]:
-    parser = argparse.ArgumentParser(description='plot roc of models ', prog='plot_roc_dist.py')
-    parser.add_argument('parameterfilenames', nargs='+', help='model to be used')
-    parser.add_argument('--base', help='network to compare to in ratio plot. if not set, the BDT is used')
-    parser.add_argument('--figname', default='models/roc.png')
-
-    args = parser.parse_args()
-    param_list_: List[Parameters] = [Parameters(load=file) for file in args.parameterfilenames]
-    check_params_work_together(param_list_)
-
-    figname_: Filename = args.figname
-    base_: Optional[Union[Filename, str]] = args.base
-    if base_ is None:
-        base_ = 'bdt'
-    print(f'\nBase is {base_}')
-    return param_list_, base_, figname_
-
 
 
 class NamedArray(np.ndarray):
@@ -109,7 +79,7 @@ def select(self, arr: NDArray, key_or_array: Union[str, NDArray], minimum: Union
 class Data:
     """contains the df, the truth and a dict of scores"""
     def __init__(self, dataframefile: Filename, predictionfiles: List[str], modelnames: List[str], 
-                 weightfile: Optional[Filename] = None, base: str = 'bdt', use_set: str = 'test'
+                 weightfile: Optional[Filename] = None, base: str = 'bdt', base_file=None, use_set: str = 'test'
                  ) -> None:
         self.df = pd.read_pickle(dataframefile)
         self.df['fake'] = ~self.df['real']
@@ -131,7 +101,7 @@ class Data:
         else:
             self.weights = np.load(weightfile)
 
-        self.base = self._set_base(base)
+        self.base = self._set_base(base, base_file)
         self.scores = {name: Scores(file, name) for file, name in zip(predictionfiles, modelnames)}
 
         self._select_set(use_set)
@@ -142,7 +112,7 @@ class Data:
         if base.lower() == 'bdt':
             base_name = 'BDT'
             base_pred = self.df['bdt3'].to_numpy()
-        elif file is not None:
+        elif file is not None: #TODO fix
             base_name = base
             base_pred = np.load(file)
         return Scores(base_pred, base_name)

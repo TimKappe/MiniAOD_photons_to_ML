@@ -193,6 +193,55 @@ if figname is not None:
     # fig3.savefig(fig3name)  # don't usually need classic anymore
     print('INFO: fig saves as:', figname, fig2name)#, fig3name)
 
+modelfiles = ['models/cnn_only_image_pred.npy', 
+              'models/cnn0_pred.npy', 
+            #   'models/cnn1_pred.npy', 
+            #   'models/cnn2_pred.npy', 
+              'models/cnn3_pred.npy', 
+              'models/cnn4_pred.npy', 
+              'models/cnn5_pred.npy', 
+              'models/cnn6_pred.npy', 
+              'models/cnn7_pred.npy', 
+              'models/cnn8_pred.npy', 
+              ]
+modelnames = ['no additional inputs',
+              r'$ p_t $', 
+              r'$ \eta, \rho, \varphi $', 
+              r'$ \frac{H}{E}, hcalIso, I_{tr}, I_{ch}, I_n $', 
+              r'$ ecalIso, I_{\gamma} $', 
+              r'$ \sigma_{i\eta i\eta} $', 
+              r'$ R_9 $', 
+              r'conversion info', 
+              ]
+fignames = [f'models/roc_inputs_{i}.png' for i in range(len(modelnames))]
+
+fig1, ax1 = plt.subplots(figsize=(10,8))
+fig2, ax2 = plt.subplots(figsize=(14,8))  # larger because of outside legend
+plot_roc(ax1, pred_bdt, y_test, weights_test, label='BDT', color='black', ls='--')
+color=None
+for i in range(len(modelfiles)):
+    pred = np.load(modelfiles[i])
+    if modelfiles[i]==modelfiles[-1]:
+        color='black'
+    plot_roc(ax1, pred, y_test, weights_test, label=modelnames[i], color=color)
+    plot_roc_ratio(ax2, pred_bdt, pred, y_test, weights_test, label=modelnames[i], color=color)
+    
+    # ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5))
+    ax2.set_ylim(None, 3.8)
+    
+    ax2.set_title('ROC ratios: CNN/BDT')
+
+    fig1.tight_layout()	
+    fig2.tight_layout()	
+
+    name = fignames[i].split('.')[0] + '_ratio.png'
+    fig1.savefig(fignames[i])
+    fig2.savefig(name)
+    print('INFO: fig saved as:', fignames[i])
+    print('INFO: fig saved as:', name)
+
+
 
 print('FINISHED')
 plt.show()
