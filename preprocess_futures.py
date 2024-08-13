@@ -52,16 +52,44 @@ def get_ecalIso(photon: Particle) -> float:
 def get_hcalIso(photon: Particle) -> float:
     return photon.hcalPFClusterIso()
 
-def is_real(photon: Particle) -> bool:
-    """returns True for a real photon and False for a fake"""
+def is_real(photon: Particle, genparticles) -> bool:
+    """returns True for a real photon and False for a fake
+    the photon must have pdgID 22 and be truthmatched to a genParticle"""
+    # first check the pdgID of the reco
     try:
         pdgId = photon.genParticle().pdgId()
-        if pdgId == 22:
-            return True  # real
-        else:
+        if pdgId != 22: 
             return False  # fake
     except ReferenceError:
         return False  # fake
+
+    matched = False
+    # loop through genParticles to see if one matches
+    for genparticle in genparticles:
+        pdgId = genparticle.pdgId()
+        if pdgId != 22: continue
+
+        if not genparticle.isPromptFinalState(): continue
+        if not genparticle.fromHardProcessFinalState(): continue
+
+        if not np.abs(photon.pt()-genparticle.pt())/photon.pt() < 0.20: continue
+        
+        # build four-vector to calculate DeltaR to photon 
+
+        photon_vector = ROOT.TLorentzVector()
+        photon_vector.SetPtEtaPhiE(photon.pt(), photon.eta(), photon.phi(), photon.energy())
+
+        genParticle_vector = ROOT.TLorentzVector()
+        genParticle_vector.SetPtEtaPhiE(genparticle.pt(), genparticle.eta(), genparticle.phi(), genparticle.energy())
+        
+        deltaR = photon_vector.DeltaR(genParticle_vector)
+        if deltaR < 0.1:
+            matched = True
+            break
+    return matched
+
+
+
 
 def did_convert_full(photon: Particle) -> bool:
     """checks if photon converted and both tracks got reconstructed"""
@@ -132,7 +160,7 @@ def get_all(photon: Particle) -> dict[str, Union[int, float, bool]]:
         'I_tr': photon.trackIso(),
         'ecalIso': photon.ecalPFClusterIso(),
         'hcalIso': photon.hcalPFClusterIso(),
-        'real': real,
+        # 'real': real,  # this is determined at a later point now
         # 'mc_truth': mc_truth,  # Uncomment if mc_truth is needed despite the comment in the original code
         'bdt2': (photon.userFloat("PhotonMVAEstimatorRunIIFall17v2Values") + 1) / 2,
         'bdt3': (photon.userFloat("PhotonMVAEstimatorRunIIIWinter22v1Values") + 1) / 2,
@@ -256,6 +284,7 @@ def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray
     photonHandle, photonLabel = Handle("std::vector<pat::Photon>"), "slimmedPhotons"
     RecHitHandleEB, RecHitLabelEB = Handle("edm::SortedCollection<EcalRecHit,edm::StrictWeakOrdering<EcalRecHit> >"), "reducedEgamma:reducedEBRecHits"
     RecHitHandleEE, RecHitLabelEE = Handle("edm::SortedCollection<EcalRecHit,edm::StrictWeakOrdering<EcalRecHit> >"), "reducedEgamma:reducedEERecHits"
+    genParticlesHandle, genParticlesLabel = Handle("std::vector<reco::GenParticle>"), "prunedGenParticles"
     rhoHandle, rhoLabel = Handle("std::double"), "fixedGridRhoAll"
     triggerHandle, triggerLabel = Handle("edm::TriggerResults"), ""
     events = Events(file)
@@ -264,27 +293,34 @@ def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray
     df_list: List[dict] = []  # save data in nested list to convert to DataFrame later
     rechit_list: List[NDArray] = []  # save data in nested list to convert to DataFrame later
     mode, kind = detect_mode(file)
-    mode, kind = 'tagprobe', 'mc'
+    # mode, kind = 'tagprobe', 'mc'
     for i, event in enumerate(events):
         if i == 0:
             print("\tINFO: file open sucessful, starting Event processing")
         elif i+1 % 10_000 == 0:
             print(f"\tINFO: processing event {i+1}.")
-        # print("\t INFO: processing event", i)
+        print("\t INFO: processing event", i)
         event.getByLabel(photonLabel, photonHandle)
         event.getByLabel(RecHitLabelEB, RecHitHandleEB)
         event.getByLabel(RecHitLabelEE, RecHitHandleEE)
+        event.getByLabel(genParticlesLabel, genParticlesHandle)
         event.getByLabel(rhoLabel, rhoHandle)
         event.getByLabel(triggerLabel, triggerHandle)
+
+
 
         if mode == 'tagprobe' and kind == 'data':
             if not matches_trigger(triggerHandle): continue
 
         df_event: List[dict] = []
         rechits_event: List[NDArray] = []
+        genParticles = genParticlesHandle.product()
+        photon_number = 0
         for photon in photonHandle.product():
             # only use barrel
+            photon_number += 1
             if not get_detector_ID(photon): continue
+            print('\t\tPhoton number:', photon_number)
             
             # dataframe
             seed_id = photon.superCluster().seed().seed()
@@ -301,6 +337,9 @@ def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray
             # add event only after preselection
             use_eveto = False if mode=='tagprobe' else True
             if not get_total_preselection(photonAttributes, use_eveto=use_eveto): continue
+
+            # determine whether photon is real or fake
+            photonAttributes["real"] = is_real(photon, genParticles)
 
             # rechits
             # using photon.EEDetId() directly gives the same value but errors in select_recHits
@@ -379,10 +418,10 @@ def process_file(file: Filename) -> None:
 
 if __name__ == '__main__':
     # high pt test file:
-    # process_file('/store/mc/Run3Summer22EEMiniAODv4/GJet_PT-40_DoubleEMEnriched_TuneCP5_13p6TeV_pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/30000/cb93eb36-cefb-4aea-97aa-fcf8cd72245f.root')
+    process_file('/store/mc/Run3Summer22EEMiniAODv4/GJet_PT-40_DoubleEMEnriched_TuneCP5_13p6TeV_pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/30000/cb93eb36-cefb-4aea-97aa-fcf8cd72245f.root')
     # mgg test file:
     #process_file('/store/mc/Run3Summer22EEMiniAODv4/GJet_PT-40_DoubleEMEnriched_MGG-80_TuneCP5_13p6TeV_pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/50000/d9c395aa-9eee-426a-944f-9ef41058f2d3.root')
     # zee mc:
-    process_file('/store/mc/Run3Summer22EEMiniAODv4/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6_ext2-v2/2820000/62dad405-af8f-4f51-ae23-b5b4619eb570.root')
+    # process_file('/store/mc/Run3Summer22EEMiniAODv4/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6_ext2-v2/2820000/62dad405-af8f-4f51-ae23-b5b4619eb570.root')
     # zee data:
     # process_file('/store/data/Run2022G/EGamma/MINIAOD/19Dec2023-v1/2560000/44613402-63f2-4bf0-9485-36b3ab13d45f.root')
