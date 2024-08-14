@@ -10,13 +10,13 @@ def transform_to_indices(arr: NDArray) -> NDArray:
     """
     this functions transforms the photon_idxs array of sparse rechits so that the idxs count continuous from zero
     this is needed after slicing (idxs larger than amount of images) or when combining files (indices might not be unique)
-    """
+    """ #TODO THIS DOES NOT WORK PROPERLY FOR COMBINED ARRAYS ([0,0,1,1,2,2,3,3,1,1] will NOT be transformed to [0,0,1,1,2,2,3,3,4,4])
     unique = np.unique(arr, return_index=False, return_counts=False)
     indices = np.arange(len(unique))
 
     number_to_index = dict(zip(unique, indices))    
     indices_array = np.array([number_to_index[_] for _ in arr])
-    return indices_array
+    return indices_array.astype(np.int32)
 
 def shift_indices(arr: NDArray, start: int) -> NDArray:
     """
