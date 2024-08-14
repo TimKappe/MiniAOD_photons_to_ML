@@ -220,7 +220,7 @@ def select_rechits(recHits, photon_seed, distance=5) -> NDArray[float]:
 
 def detect_mode(file: Filename) -> Tuple[str, str]:
     """decide if tag and probe is being run and if it data or MC based on the filename"""
-    if '/EGamma/Run2022G-19Dec2023-v1/MINIAOD' in file:  # Zee data
+    if 'EGamma' in file:  # Zee data
         mode = 'tagprobe'
         kind = 'data'
     elif 'DYto2L-2Jets_MLL-50' in file:  # Zee sim
@@ -293,34 +293,35 @@ def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray
     df_list: List[dict] = []  # save data in nested list to convert to DataFrame later
     rechit_list: List[NDArray] = []  # save data in nested list to convert to DataFrame later
     mode, kind = detect_mode(file)
-    # mode, kind = 'tagprobe', 'mc'
     for i, event in enumerate(events):
         if i == 0:
             print("\tINFO: file open sucessful, starting Event processing")
         elif i+1 % 10_000 == 0:
             print(f"\tINFO: processing event {i+1}.")
-        print("\t INFO: processing event", i)
+        # print("\t INFO: processing event", i)
         event.getByLabel(photonLabel, photonHandle)
         event.getByLabel(RecHitLabelEB, RecHitHandleEB)
         event.getByLabel(RecHitLabelEE, RecHitHandleEE)
-        event.getByLabel(genParticlesLabel, genParticlesHandle)
+        if mode!='tagprobe':
+            event.getByLabel(genParticlesLabel, genParticlesHandle)
         event.getByLabel(rhoLabel, rhoHandle)
         event.getByLabel(triggerLabel, triggerHandle)
 
 
-
-        if mode == 'tagprobe' and kind == 'data':
-            if not matches_trigger(triggerHandle): continue
+        # # ignore for now
+        # if mode == 'tagprobe' and kind == 'data':
+            # if not matches_trigger(triggerHandle): continue
 
         df_event: List[dict] = []
         rechits_event: List[NDArray] = []
-        genParticles = genParticlesHandle.product()
+        if mode != 'tagprobe':
+            genParticles = genParticlesHandle.product()
         photon_number = 0
         for photon in photonHandle.product():
             # only use barrel
-            photon_number += 1
             if not get_detector_ID(photon): continue
-            print('\t\tPhoton number:', photon_number)
+            # photon_number += 1
+            # print('\t\tPhoton number:', photon_number)
             
             # dataframe
             seed_id = photon.superCluster().seed().seed()
@@ -339,7 +340,8 @@ def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray
             if not get_total_preselection(photonAttributes, use_eveto=use_eveto): continue
 
             # determine whether photon is real or fake
-            photonAttributes["real"] = is_real(photon, genParticles)
+            if mode != 'tagprobe':
+                photonAttributes["real"] = is_real(photon, genParticles)
 
             # rechits
             # using photon.EEDetId() directly gives the same value but errors in select_recHits
@@ -374,8 +376,10 @@ def determine_datasite(file: Filename) -> str:
         datasite = 'T2_US_Caltech'  
     elif '10to40' in file:  # low pt, g+jets, postEE
         datasite = 'T1_US_FNAL_Disk'  
-    elif '/EGamma/Run2022G-19Dec2023-v1/MINIAOD' in file:  # Zee data
+    elif 'EGamma' in file:  # Zee data
         datasite = 'T1_US_FNAL_Disk'  
+        # datasite = 'T1_DE_KIT_Disk'  # no servers available to read the file
+        # datasite = 'T1_FR_CCIN2P3_Disk'  # no servers available to read the file
     elif 'DYto2L-2Jets_MLL-50' in file:  # Zee sim
         datasite = 'T1_US_FNAL_Disk' 
     return datasite
@@ -396,7 +400,6 @@ def get_save_loc() -> str:
 def process_file(file: Filename) -> None:
 
     datasite = determine_datasite(file)  # determine datasite from filename
-    datasite = None
     if datasite is not None:
         file = '/store/test/xrootd/' + datasite + file
     file = 'root://xrootd-cms.infn.it/' + file
@@ -417,11 +420,13 @@ def process_file(file: Filename) -> None:
     print('INFO: finished running.')
 
 if __name__ == '__main__':
+    # high pt problem file:
+    # process_file('/store/mc/Run3Summer22EEMiniAODv4/GJet_PT-40_DoubleEMEnriched_TuneCP5_13p6TeV_pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/30000/2a3e6842-6a82-4c80-921a-cd7fe86dab59.root')
     # high pt test file:
-    process_file('/store/mc/Run3Summer22EEMiniAODv4/GJet_PT-40_DoubleEMEnriched_TuneCP5_13p6TeV_pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/30000/cb93eb36-cefb-4aea-97aa-fcf8cd72245f.root')
+    # process_file('/store/mc/Run3Summer22EEMiniAODv4/GJet_PT-40_DoubleEMEnriched_TuneCP5_13p6TeV_pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/30000/cb93eb36-cefb-4aea-97aa-fcf8cd72245f.root')
     # mgg test file:
     #process_file('/store/mc/Run3Summer22EEMiniAODv4/GJet_PT-40_DoubleEMEnriched_MGG-80_TuneCP5_13p6TeV_pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/50000/d9c395aa-9eee-426a-944f-9ef41058f2d3.root')
     # zee mc:
     # process_file('/store/mc/Run3Summer22EEMiniAODv4/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6_ext2-v2/2820000/62dad405-af8f-4f51-ae23-b5b4619eb570.root')
     # zee data:
-    # process_file('/store/data/Run2022G/EGamma/MINIAOD/19Dec2023-v1/2560000/44613402-63f2-4bf0-9485-36b3ab13d45f.root')
+    process_file('/store/data/Run2022G/EGamma/MINIAOD/19Dec2023-v1/2560000/44613402-63f2-4bf0-9485-36b3ab13d45f.root')
