@@ -212,6 +212,43 @@ def build_cnn_from_params(parameters: Parameters) -> models.Model:
     x = layers.Conv2D(32, (3, 3), activation='relu', padding='same')(x)
     x = layers.MaxPool2D(pool_size=(2, 2), padding='same')(x)
     x = layers.Conv2D(64,(3, 3), padding='same', activation='relu')(x)
+    x = layers.MaxPool2D(pool_size=(2, 2), padding='same')(x)
+    x = layers.Flatten()(x)
+    x = layers.Concatenate(name='Features')([x, other_inputs])
+    x = layers.Dense(64, activation='relu')(x)
+    x = layers.Dense(32, activation='relu')(x)
+    x = layers.Dense(8, activation='relu')(x)
+    output_layer = layers.Dense(1, activation='sigmoid')(x)
+    return models.Model(inputs=[input_layer, other_inputs], outputs=output_layer)
+
+def residual_block(x, filters, kernel_size=(3,3), activation='relu', **kwargs):
+    x0 = x
+    x = layers.Conv2D(filters, kernel_size, activation=activation, padding='same', **kwargs)(x)
+    # x = layers.BatchNormalization()(x)
+    x = layers.Conv2D(filters, kernel_size, activation=activation, padding='same', **kwargs)(x)
+    # x = layers.BatchNormalization()(x)
+
+    if x0.shape[-1] != filters:
+        # Adjust dimensions of x0 to match x
+        x0 = layers.Conv2D(filters, kernel_size=1, padding='same')(x)  # not activated on prupose
+        # x0 = BatchNormalization()(x0)
+    
+    x = layers.Add()([x, x0])
+    return x
+
+def build_resnet_from_params(parameters: Parameters) -> models.Model:
+    input_layer = layers.Input(shape=parameters['input_shape'], name='Input: image')
+    other_inputs = layers.Input(shape=(len(parameters['other_inputs']),), name=f"Input: {parameters['other_inputs']}")
+    x = residual_block(input_layer, 16)
+    x = residual_block(x, 16)
+    x = residual_block(x, 16)
+    x = layers.MaxPool2D(pool_size=(2, 2), padding='same')(x)
+    x = residual_block(x, 32)
+    x = residual_block(x, 32)
+    x = residual_block(x, 32)
+    x = layers.MaxPool2D(pool_size=(2, 2), padding='same')(x)
+    x = residual_block(x, 64)
+    x = residual_block(x, 64)
     x = layers.Flatten()(x)
     x = layers.Concatenate(name='Features')([x, other_inputs])
     x = layers.Dense(64, activation='relu')(x)
