@@ -60,8 +60,17 @@ def combine_rechits(file_list: Sequence[Filename], savename: Filename,
         shape = (num_photons, size[0], size[1])
         data = data[32:].reshape(shape)
         all_data += [data]
+        if i==999:
+            print('too many files: loading some data')
+            tmp_arr = np.vstack(all_data)
+            print('loaded')
+            all_data = []
+
     
     large_array = np.vstack(all_data)
+    if len(file_list)>999:
+        print('concatenating two large arrays')
+        large_array = np.concatenate((tmp_arr, large_array))
     print('files combined, starting saving...')
     if not dense:  # converting here is less efficient but easier because of the photon indices
         large_sparse_array = dense_to_sparse(large_array)
