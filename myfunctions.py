@@ -6,17 +6,32 @@ from mytypes import Filename, Mask, Sparse
 
 ##########################################################################
 ### helper functions
-def transform_to_indices(arr: NDArray) -> NDArray:
+def transform_to_indices(arr: NDArray, prints: bool = False) -> NDArray:
     """
     this functions transforms the photon_idxs array of sparse rechits so that the idxs count continuous from zero
     this is needed after slicing (idxs larger than amount of images) or when combining files (indices might not be unique)
-    """ #TODO THIS DOES NOT WORK PROPERLY FOR COMBINED ARRAYS ([0,0,1,1,2,2,3,3,1,1] will NOT be transformed to [0,0,1,1,2,2,3,3,4,4])
-    unique = np.unique(arr, return_index=False, return_counts=False)
-    indices = np.arange(len(unique))
+    THIS DOES NOT WORK if there are duplicates in the photon_indices e.g. [0,0,0,3,3,3,2,2,1,0,0,3,3]
+    """
+    _, indices = np.unique(arr, return_index=True, return_counts=False)  
+    # indices is the index of the first occurence of each number sorted by number 
+    # meaning: where is the first 0, then the first 1 and so on
+    sorted_indices = np.sort(indices)  # now it is the first occurrence of a new number
+    unique_in_order_of_appearance = arr[sorted_indices]
+    idx_appearance = np.arange(len(unique_in_order_of_appearance))  # just 
 
-    number_to_index = dict(zip(unique, indices))    
-    indices_array = np.array([number_to_index[_] for _ in arr])
-    return indices_array.astype(np.int32)
+    # map the values to the arange by order of appearance
+    uni_to_index = {uni:idx for uni,idx in zip(unique_in_order_of_appearance, idx_appearance)}
+    result = np.array([uni_to_index[_] for _ in arr])
+
+    if prints:
+        print('input:', arr)
+        print('sorted indices:', sorted_indices)
+        print('unique in order of appearance:', unique_in_order_of_appearance)
+        print('idxs:', idx_appearance)
+        print('mapping:', uni_to_index)
+        print('result:', result)
+    
+    return result.astype(np.int32)
 
 def shift_indices(arr: NDArray, start: int) -> NDArray:
     """
@@ -128,7 +143,7 @@ def slice_sparse(sparse: Sparse, mask: Mask, slice_array: Optional[NDArray] = No
 
 def combine_sparse(sparse_seq: Sequence[Sparse]) -> Sparse:
     """combine multiple sparse rechits"""
-    lengths = [sparse[0].size for sparse in sparse_seq]
+    lengths = [sparse[0].size for sparse in sparse_seq]  # number of pixels in each sparse
     num = np.sum(lengths)
     new_values = np.zeros(num, dtype=np.float32)
     new_indices = np.zeros((3, num), dtype=int)
