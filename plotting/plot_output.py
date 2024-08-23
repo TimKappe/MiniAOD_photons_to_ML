@@ -10,7 +10,7 @@ layers = keras.layers
 import argparse
 import myplotparams
 
-from mynetworks import Patches, PatchEncoder, resize_images
+# from mynetworks import Patches, PatchEncoder, resize_images
 from numpy.typing import NDArray
 from mytypes import Mask
 
@@ -52,9 +52,9 @@ def setup_parser():
 
 ### predict scores
 # y_pred = model.predict(x_test).flatten()  # output shape is (X, 1)
-df: pd.DataFrame = pd.read_pickle('data/new_data_pre_barrel.pkl')
-real: Mask = df.real[:int(0.8*len(df))]  # only use test set
-bdt: NDArray = df.bdt3.to_numpy()[:int(0.8*len(df))]
+df: pd.DataFrame = pd.read_pickle('data/data_32x32_high.pkl')
+real: Mask = df.real[int(0.8*len(df)):]  # only use test set
+bdt: NDArray = df.bdt3.to_numpy()[int(0.8*len(df)):]
 print(bdt.shape)
 print(len(real))
 print((~real).sum())
@@ -62,7 +62,7 @@ modelname: str = 'bdt'
 
 from mymodules import get_centered_binning
 from mymodules import plot_output
-binwidth = 0.05
+binwidth = 0.02
 binning = (int(1/binwidth), 0., 1.)
 ax: plt.Axes
 fig, ax = plt.subplots(figsize=(10, 8))

@@ -4,14 +4,14 @@ import pandas as pd
 import numpy as np
 
 
-df = pd.read_pickle('data/data_32x32_high.pkl')
-dataframefile = 'data/data_32x32_high.pkl'
-modelfiles = ['models/cnn_no_image_pred.npy', 
+# df = pd.read_pickle('data/data_32x32_high.pkl')
+# dataframefile = 'data/data_32x32_high.pkl'
+modelfiles = ['models/cnn_only_image_pred.npy', 
               'models/cnn0_pred.npy', 
             #   'models/cnn1_pred.npy', 
             #   'models/cnn2_pred.npy', 
               'models/cnn3_pred.npy', 
-              'models/cnn4_pred.npy', 
+            #   'models/cnn4_pred.npy', 
               'models/cnn5_pred.npy', 
               'models/cnn6_pred.npy', 
               'models/cnn7_pred.npy', 
@@ -20,32 +20,42 @@ modelfiles = ['models/cnn_no_image_pred.npy',
 modelnames = ['no additional inputs',
               r'$ p_t $', 
               r'$ \eta, \rho, \varphi $', 
-              r'$ \frac{H}{E}, hcalIso, I_{tr}, I_{ch}, I_n $', 
-              r'$ ecalIso, I_{\gamma} $', 
+            #   r'$ \frac{H}{E}, hcalIso, I_{tr}, I_{ch}, I_n $', 
+            #   r'$ ecalIso, I_{\gamma} $', 
+              r'$ \frac{H}{E}, hcalIso, I_{tr}, I_{ch}, I_n $  \n  $ ecalIso, I_{\gamma} $', 
               r'$ sigma_{i\eta i\eta} $', 
               r'$ R_9 $', 
               r'conversion info', 
               ]
 fignames = [f'plots/roc_inputs_{i}.png' for i in range(len(modelnames))]
-# modelfiles = ['models/cnn8_pred.npy',
-            #   'models/cnn1_pred.npy']
-# modelnames = ['CNN', 'cnn1']
-weightsfile = 'data/weights_32x32_high.npy'
+modelfiles = [
+              'models/resnet_combined_pred.npy',
+              # 'models/cnn8_pred.npy'
+              ]
+modelnames = [
+              'ResNet', 
+              # 'cnn'
+              ]
+# weightsfile = 'data/weights_32x32_high.npy'
+dataframefile = 'data/data_shuffled.pkl'
+weightsfile = 'data/weights_shuffled.npy'
 
-
-# data = Data(dataframefile, modelfiles, modelnames, weightsfile, base='bdt', use_set='test')
-# plotter = ROC(data)
-# for i in range(len(modelnames)):
-    # fig, ax = plt.subplots()
-    # plotter.plot_models()
-
-
-modelfiles = ['models/cnn8_pred.npy', 'models/vit_all_inputs_pred.npy']
-vit_file = modelfiles[1]
-data = Data(dataframefile, [vit_file], ['ViT'], weightsfile, base='CNN', base_file=modelfiles[0])
+data = Data(dataframefile, modelfiles, modelnames, weightsfile, base='bdt', use_set='test')
 plotter = ROC(data)
+# for i in range(len(modelnames)):
+#     fig, ax = plt.subplots()
+#     plotter.plot_models(ax, mode='ratio')
+#     fig.tight_layout()
+#     fig.savefig(fignames[i])
 
 
+# modelfiles = ['models/cnn8_pred.npy', 'models/vit_pred.npy']
+# vit_file = modelfiles[1]
+# data = Data(dataframefile, [vit_file], ['ViT'], weightsfile, base='CNN', base_file=modelfiles[0])
+# plotter = ROC(data)
+
+# import sys
+# sys.exit()
 
 
 
@@ -60,7 +70,7 @@ bin_edges = dict(
 )
 keys = ['pt', 'eta', 'r9', 'phi']
 for key in keys:
-    if key=='pt': continue
+    # if key=='pt': continue
     fig1, ax1 = plt.subplots(figsize=(10,8))
     fig2, ax2 = plt.subplots(figsize=(10,8))
     fig3, ax3 = plt.subplots(figsize=(10,8))
@@ -70,8 +80,8 @@ for key in keys:
     # plotter.plot_cuts(ax3, key, bin_edges[key], threshold=0.0, mode='thresholds')
     # plotter.plot_cuts(ax4, key, bin_edges[key], threshold=0.0, mode='output')
 
-    fig1name = f'plots/vit_to_cnn.png'
-    fig2name = f'plots/vit_to_cnn_ratio.png'
+    fig1name = f'plots/resnet_cuts_{key}.png'
+    fig2name = f'plots/resnet_cuts_{key}_ratio.png'
     # fig3name = f'plots/roc_cuts_{key}_thresholds.png'
     # fig4name = f'plots/roc_cuts_{key}_output.png'
     fig1.savefig(fig1name)

@@ -70,13 +70,13 @@ def plot_weights(ax_: plt.Axes, hist_axes: bh.axis, weights_: NDArray,
 
 
 
-dataframefile: Filename = 'data/data_32x32_high.pkl'
+dataframefile: Filename = 'data/data_shuffled.pkl'
 histfile: Filename = 'data/hist_weight.pkl'
 df = pd.read_pickle(dataframefile)
 pt = df.pt
 eta = df.eta
 real: Mask = df.real
-weights_real = np.load('data/weights_32x32_high.npy')
+weights_real = np.load('data/weights_shuffled.npy')
 # weights_fake = np.load('data/weights_fake.npy')
 
 

@@ -193,22 +193,27 @@ if figname is not None:
     # fig3.savefig(fig3name)  # don't usually need classic anymore
     print('INFO: fig saves as:', figname, fig2name)#, fig3name)
 
-modelfiles = ['models/cnn_only_image_pred.npy', 
+modelfiles = [
+            #   'models/cnn_only_image_pred.npy', 
               'models/cnn0_pred.npy', 
             #   'models/cnn1_pred.npy', 
             #   'models/cnn2_pred.npy', 
               'models/cnn3_pred.npy', 
-              'models/cnn4_pred.npy', 
+            #   'models/cnn4_pred.npy', 
               'models/cnn5_pred.npy', 
               'models/cnn6_pred.npy', 
               'models/cnn7_pred.npy', 
               'models/cnn8_pred.npy', 
               ]
-modelnames = ['no additional inputs',
+modelnames = [
+            #   'no additional inputs',
               r'$ p_t $', 
+            #   r'$ \eta $', 
+            #   r'$ \rho $', 
               r'$ \eta, \rho, \varphi $', 
-              r'$ \frac{H}{E}, hcalIso, I_{tr}, I_{ch}, I_n $', 
-              r'$ ecalIso, I_{\gamma} $', 
+            #   r'$ \frac{H}{E}, hcalIso, I_{tr}, I_{ch}, I_n $', 
+            #   r'$ ecalIso, I_{\gamma} $', 
+              r'$ \frac{H}{E}, hcalIso, I_{tr}, I_{ch}, I_n $  \n  $ ecalIso, I_{\gamma} $', 
               r'$ \sigma_{i\eta i\eta} $', 
               r'$ R_9 $', 
               r'conversion info', 
@@ -228,7 +233,7 @@ for i in range(len(modelfiles)):
     
     # ax1.legend(loc='center left', bbox_to_anchor=(1, 0.5))
     ax2.legend(loc='center left', bbox_to_anchor=(1, 0.5))
-    ax2.set_ylim(None, 3.8)
+    # ax2.set_ylim(None, 3.8)
     
     ax2.set_title('ROC ratios: CNN/BDT')
 

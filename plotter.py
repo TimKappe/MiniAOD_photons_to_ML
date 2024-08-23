@@ -397,15 +397,15 @@ class ROC:
         axis.axvline(fifty, ls='--', color=kwargs.get('color'), label=label)
 
 
-    def plot_models(self, axis, mode: str = 'ratio', **kwargs):
+    def plot_models(self, axis: plt.Axes, mode: str = 'ratio', **kwargs) -> None:
         plot_mode = self.plotting_functions[mode.lower()]
         for i, (name, score) in enumerate(self.data.scores.items()):
             current_color = self.colors[i]
             plot_mode(axis, score, label=name, color=current_color, **kwargs)
 
     
-    def plot_cuts(self, axis, key: str, bin_edges: List[int], mode: str = 'ratio', 
-                  threshold: float = 0.6, fifty_percent_line: bool = False, apply_to='both', **kwargs):
+    def plot_cuts(self, axis: plt.Axes, key: str, bin_edges: List[int], mode: str = 'ratio', 
+                  threshold: float = 0.6, fifty_percent_line: bool = False, apply_to='both', **kwargs) -> None:
         """
         mode can be "ratio", "normal" or "classic"
         apply to can be "both", "real" or "fake"

@@ -45,6 +45,7 @@ print('data loaded')
 dense = sparse_to_dense(sparse, (32, 32))
 print('rechits made dense')
 
+
 pt = df.pt.to_numpy()
 real = df.real
 fake = ~real
@@ -53,34 +54,53 @@ convertedOneLeg = df.convertedOneLeg
 
 both = converted & convertedOneLeg
 not_converted = ~(converted | convertedOneLeg)
+no_sel = np.ones(real.shape, dtype=bool)
 
-combinations = [not_converted, converted, convertedOneLeg, both]
-names = ['not converted', 'converted', 'oneLeg', 'both']
+combinations = [no_sel, not_converted, converted, convertedOneLeg, both]
+names = ['all', 'not converted', 'converted', 'oneLeg', 'both']
 for sel, realfake in zip([real, fake], ['real', 'fake']):
     for mask, name in zip(combinations, names):
         savename = f'plots/average_{realfake}_{name}.png'
-        title = f'{realfake}, {name}'
+        title = f'{realfake}_{name}'
         plot_average_rechits(dense[mask & sel], title, savename)
 
+assert False
 
 
+num = 99
+idxs = np.arange(len(df))
+random_real = np.random.randint(0, real.sum(), num)
+random_fake = np.random.randint(0, fake.sum(), num)
+idxs_real = idxs[real][random_real]  # the idxs operate on the full df!
+idxs_fake = idxs[fake][random_fake]
+metadata_real = 'number, idx, converted, convertedOneLeg'
+metadata_fake = 'number, idx, converted, convertedOneLeg'
+print('i: index, converted, convertedOneLeg')
+for i in range(len(random_real)):
+    idx = idxs_real[i]  # the idxs operate on the full df!
+    c, col = converted[idx], convertedOneLeg[idx]
+    info = f'{i+1}, {idx}, {c}, {col}'
+    metadata_real += '\n' + info
+    print(info)
+    plot_image(dense[idx], f'real, pt={pt[idx]:.2f}', savename=f'plots/image_real{i+1:02d}.png')
 
-# num = 50
-# idxs = np.arange(len(df))
-# random_real = np.random.randint(0, real.sum(), num)
-# random_fake = np.random.randint(0, fake.sum(), num)
-# idxs_real = idxs[real][random_real]
-# idxs_fake = idxs[fake][random_fake]
-# print('i: index, converted, convertedOneLeg')
-# for i in range(len(random_fake)):
-#     idx = idxs_real[i]
-#     c, col = converted[real][idx], convertedOneLeg[real][idx]
-#     print(i+1, ':', idx, c, col)
-#     # print(dense[real[idx]])
-#     plot_image(dense[idx], f'real, pt={pt[idx]:.2f}', savename=f'plots/image_real{i+1:02d}.png')
-#     idx = idxs_fake[i]
-#     plot_image(dense[idx], f'fake, pt={pt[idx]:.2f}', savename=f'plots/image_fake{i+1:02d}.png')
+    idx = idxs_fake[i]
+    c, col = converted[idx], convertedOneLeg[idx]
+    info = f'{i+1}, {idx}, {c}, {col}'
+    metadata_fake += '\n' + info
+    print(info)
+    plot_image(dense[idx], f'fake, pt={pt[idx]:.2f}', savename=f'plots/image_fake{i+1:02d}.png')
 
+# save metadata as txt
+metadata_file_real = 'plots/rechit_metadata_real.txt'
+with open(metadata_file_real, 'w') as file:
+    file.write(metadata_real)
+print(f'INFO: saved real metadata as {metadata_file_real}')
+
+metadata_file_fake = 'plots/rechit_metadata_fake.txt'
+with open(metadata_file_fake, 'w') as file:
+    file.write(metadata_fake)
+print(f'INFO: saved fake metadata as {metadata_file_fake}')
 
 plt.show()
 
