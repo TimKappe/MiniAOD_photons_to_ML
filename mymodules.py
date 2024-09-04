@@ -42,9 +42,7 @@ def histplot(ax: plt.Axes, data: NDArray, binning: Tuple[int, float, float],
     returns the histogram
     """
     hist = bh.Histogram(bh.axis.Regular(*binning))
-    hist.fill(data)
-    if weights is not None:
-        hist *= weights
+    hist.fill(data, weight=weights)
     if normalizer is None:
         normalizer = hist.sum()
     elif normalizer is False:
