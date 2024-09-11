@@ -417,6 +417,7 @@ class ROC:
                       'phi': '$\phi$',
                       'r9': '$R_9$',
                       'sigma_ieie': r'$\sigma_{ieie}$',
+                      'rho': r'$\rho$',
                       }
         # preparation
         label_func  = lambda lower, upper: f'{lower} $ \leq $ {latex_keys[key]} $ < $ {upper}'
@@ -433,11 +434,6 @@ class ROC:
         color_legend_elements += [color_line(color='black', label=full_label)]
         style_legend_elements = [style_line(styles[i], name) for i, name in enumerate(self.data.scores.keys())]
 
-        print('\n\n\n')
-        print(bins)
-        print(len(self.data.df.pt)/1e5)
-        print(len(self.data.truth)/1e5)
-        print('\n\n\n')
         masks = [self.get_mask(key, lower, upper) for (lower, upper) in bins]
         if apply_to=='fake':
             masks = [(mask | self.data.df.real) for mask in masks]  # set all real to true (== apply mask only to fakes)
@@ -450,7 +446,6 @@ class ROC:
                 current_color = colors[j]
                 current_label = labels[j]
                 # plot subset
-                print(j, mask.sum()/1e5)
                 if mask.sum()==0: continue
                 
                 plot_mode(axis, score, selection=mask, threshold=threshold, 

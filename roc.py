@@ -3,6 +3,7 @@ import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
 
+import myplotparams
 
 # df = pd.read_pickle('data/data_32x32_high.pkl')
 # dataframefile = 'data/data_32x32_high.pkl'
@@ -67,10 +68,12 @@ bin_edges = dict(
     # eta = [1, 1.1, 1.2, 1.3, 1.4, 1.5],  # outer barrel only
     r9 = [0.5, 0.7, 0.85, 0.9, 0.95, 1.0, 1.1],  # no r9 < 0.5 in my data
     phi = [i*60 *np.pi/180 - np.pi for i in range(int(360/60+1))],  # 60 degree steps in rad from -pi to pi
+    rho = [i*10 for i in range(7)]
 )
-keys = ['pt', 'eta', 'r9', 'phi']
+keys = ['pt', 'eta', 'r9', 'phi', 'rho']
 for key in keys:
     # if key=='pt': continue
+    if key!='rho': continue
     fig1, ax1 = plt.subplots(figsize=(10,8))
     fig2, ax2 = plt.subplots(figsize=(10,8))
     fig3, ax3 = plt.subplots(figsize=(10,8))
