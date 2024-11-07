@@ -287,6 +287,7 @@ def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray
     genParticlesHandle, genParticlesLabel = Handle("std::vector<reco::GenParticle>"), "prunedGenParticles"
     rhoHandle, rhoLabel = Handle("std::double"), "fixedGridRhoAll"
     triggerHandle, triggerLabel = Handle("edm::TriggerResults"), ""
+    pileupHandle, pileupLabel = Handle("std::vector<PileupSummaryInfo>"), "slimmedAddPileupInfo"
     events = Events(file)
 
     # lists to fill in the eventloop:
@@ -306,6 +307,7 @@ def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray
             event.getByLabel(genParticlesLabel, genParticlesHandle)
         event.getByLabel(rhoLabel, rhoHandle)
         event.getByLabel(triggerLabel, triggerHandle)
+        event.getByLabel(pileupLabel, pileupHandle)
 
 
         # # ignore for now
@@ -355,6 +357,39 @@ def main(file: Filename, rechitdistance: int = 5) -> Tuple[pd.DataFrame, NDArray
             # filter empty rechits
             if rechits_array.sum()==0: continue
 
+            if mode=='tagprobe' and kind=='mc':
+                import correctionlib
+                is_correction = True
+                path_to_json = '/home/home1/institut_3a/kappe/work/data/pileup.json.gz'
+
+                year = '2022postEE'
+                if "16" in year:
+                    name = "Collisions16_UltraLegacy_goldenJSON"
+                elif "17" in year:
+                    name = "Collisions17_UltraLegacy_goldenJSON"
+                elif "18" in year:
+                    name = "Collisions18_UltraLegacy_goldenJSON"
+                elif "22preEE" in year:
+                    name = "Collisions2022_355100_357900_eraBCD_GoldenJson"
+                elif "22postEE" in year:
+                    name = "Collisions2022_359022_362760_eraEFG_GoldenJson"
+                elif "23preBPix" in year:
+                    name = "Collisions2023_366403_369802_eraBC_GoldenJson"
+                elif "23postBPix" in year:
+                    name = "Collisions2023_369803_370790_eraD_GoldenJson"
+
+                evaluator = correctionlib.CorrectionSet.from_file(path_to_json)[name]
+                # nTrueInt = events.Pileup.nTrueInt  # in NanoAOD
+                nTrueInt = pileupHandle.product()[0].getTrueNumInteractions()
+                # pileupHandle.product has  multiple objects but all have the same nTrueInt value
+
+                sf = evaluator.evaluate(nTrueInt, "nominal")
+                photonAttributes['nTrueInt'] = nTrueInt
+                photonAttributes['pileup_corr'] = sf
+
+
+
+
             df_event += [photonAttributes]  # list of dicts with the values of the respective photon
             rechits_event += [rechits_array]
         if mode=='tagprobe':
@@ -382,6 +417,7 @@ def determine_datasite(file: Filename) -> str:
         # datasite = 'T1_FR_CCIN2P3_Disk'  # no servers available to read the file
     elif 'DYto2L-2Jets_MLL-50' in file:  # Zee sim
         datasite = 'T1_US_FNAL_Disk' 
+        # datasite = 'T2_DE_DESY' 
     return datasite
 
 def get_save_loc() -> str:
@@ -403,21 +439,27 @@ def process_file(file: Filename) -> None:
     if datasite is not None:
         file = '/store/test/xrootd/' + datasite + file
     file = 'root://xrootd-cms.infn.it/' + file
-    df, rechits = main(file, rechitdistance=16)
 
-    # save stuff
-    savedir = get_save_loc()
-    outname: str = file.split('/')[-1].split('.')[0]  # name of input file without directory and ending
-    dfname: Filename = savedir + 'df/' + outname + '.pkl'
-    rechitname: str = savedir + 'recHits/' + outname + '.npy'
+    try:
+        df, rechits = main(file, rechitdistance=16)
 
-    df.to_pickle(dfname)
-    print('INFO: photon df file saved as:', dfname)
+        # save stuff
+        savedir = get_save_loc()
+        outname: str = file.split('/')[-1].split('.')[0]  # name of input file without directory and ending
+        dfname: Filename = savedir + 'df/' + outname + '.pkl'
+        rechitname: str = savedir + 'recHits/' + outname + '.npy'
 
-    np.save(rechitname, rechits)
-    print('INFO: recHits file saved as:', rechitname)
+        df.to_pickle(dfname)
+        print('INFO: photon df file saved as:', dfname)
 
-    print('INFO: finished running.')
+        np.save(rechitname, rechits)
+        print('INFO: recHits file saved as:', rechitname)
+
+        print('INFO: finished running.')
+    except:
+        print('\n\n\n')
+        print('file broke')
+        print('\n\n\n')
 
 if __name__ == '__main__':
     # high pt problem file:
@@ -427,6 +469,7 @@ if __name__ == '__main__':
     # mgg test file:
     #process_file('/store/mc/Run3Summer22EEMiniAODv4/GJet_PT-40_DoubleEMEnriched_MGG-80_TuneCP5_13p6TeV_pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6-v2/50000/d9c395aa-9eee-426a-944f-9ef41058f2d3.root')
     # zee mc:
-    # process_file('/store/mc/Run3Summer22EEMiniAODv4/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6_ext2-v2/2820000/62dad405-af8f-4f51-ae23-b5b4619eb570.root')
+    process_file('/store/mc/Run3Summer22EEMiniAODv4/DYto2L-2Jets_MLL-50_TuneCP5_13p6TeV_amcatnloFXFX-pythia8/MINIAODSIM/130X_mcRun3_2022_realistic_postEE_v6_ext2-v2/2820000/62dad405-af8f-4f51-ae23-b5b4619eb570.root')
+    # process_file('zee_testfile.root')
     # zee data:
-    process_file('/store/data/Run2022G/EGamma/MINIAOD/19Dec2023-v1/2560000/44613402-63f2-4bf0-9485-36b3ab13d45f.root')
+    # process_file('/store/data/Run2022G/EGamma/MINIAOD/19Dec2023-v1/2560000/44613402-63f2-4bf0-9485-36b3ab13d45f.root')
